@@ -309,9 +309,14 @@
                             <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="mr-1"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
                             목록으로
                         </button>
-                        <button id="infoCheckBtn" class="check-btn" onclick="toggleObservationFromInfo()">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
-                        </button>
+                        
+                        <!-- '관찰' 라벨과 체크 버튼 그룹화 -->
+                        <div class="flex items-center gap-1.5 cursor-pointer group" onclick="toggleObservationFromInfo()" title="관찰 완료 체크">
+                            <span class="text-[13px] font-extrabold text-slate-500 group-active:scale-95 transition-transform">관찰</span>
+                            <div id="infoCheckBtn" class="check-btn group-active:scale-95">
+                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- 내용 본문 -->
@@ -321,11 +326,20 @@
                             <span>관측 월령: <span id="infoMoonAgeText"></span></span>
                         </div>
                     
-                        <div class="flex items-start gap-2 mb-2">
+                        <div class="flex items-start gap-2 mb-1.5">
                             <span id="infoBadge" class="badge mt-1">L1</span>
                             <h2 id="infoTitle" class="text-[20px] font-black text-slate-900 leading-tight tracking-tight break-keep"></h2>
                         </div>
-                        <p id="infoSig" class="text-xs font-bold text-blue-600 mb-3 uppercase tracking-tight"></p>
+                        
+                        <!-- 특징 라벨과 관측 난이도를 나란히 배치 -->
+                        <div class="flex items-center justify-between mb-3">
+                            <p id="infoSig" class="text-xs font-bold text-blue-600 uppercase tracking-tight m-0"></p>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[10px] font-bold text-slate-400 tracking-tighter">난이도</span>
+                                <div id="infoDifficulty"></div>
+                            </div>
+                        </div>
+                        
                         <p id="infoDesc" class="text-sm text-slate-700 leading-relaxed"></p>
                         
                         <div class="observation-tip">
@@ -537,6 +551,28 @@
         let activeHighlight = null;
         let shadowLayer = null; 
 
+        // 관측 난이도 사각형 UI 생성 함수 (1~100번을 5단계로 분류)
+        function getDifficultyHtml(id, isLarge = false) {
+            let level = Math.ceil(id / 20); // 1~20: 1단계, 21~40: 2단계 ... 81~100: 5단계
+            if(level > 5) level = 5;
+            if(level < 1) level = 1;
+            
+            const w = isLarge ? 'w-2' : 'w-1.5';
+            const h = isLarge ? 'h-3.5' : 'h-2.5';
+            const baseClass = `${w} ${h} rounded-[2px]`;
+            
+            let html = `<div class="flex items-center gap-[3px]" title="관측 난이도: ${level}/5">`;
+            for(let i=1; i<=5; i++) {
+                if(i <= level) {
+                    html += `<div class="${baseClass} bg-amber-400 shadow-sm"></div>`;
+                } else {
+                    html += `<div class="${baseClass} bg-slate-200"></div>`;
+                }
+            }
+            html += '</div>';
+            return html;
+        }
+
         // 오늘 월령 계산 (연도 포함 날짜 포맷 적용)
         function initMoonAge() {
             const today = new Date();
@@ -643,8 +679,11 @@
                         <span class="badge shrink-0">L${item.id}</span>
                         <h3 class="text-[13.5px] font-bold text-slate-800 truncate">${item.name}</h3>
                     </div>
-                    <div class="pl-[38px] pr-2 w-full min-w-0">
+                    <div class="pl-[38px] pr-2 w-full min-w-0 flex justify-between items-center">
                         <p class="text-[11px] text-slate-500 truncate">${item.sig}</p>
+                        <div class="shrink-0 pl-2">
+                            ${getDifficultyHtml(item.id, false)}
+                        </div>
                     </div>
                 `;
                 listContainer.appendChild(card);
@@ -720,6 +759,7 @@
             document.getElementById('infoBadge').innerText = `L${item.id}`;
             document.getElementById('infoTitle').innerText = item.name;
             document.getElementById('infoSig').innerText = item.sig;
+            document.getElementById('infoDifficulty').innerHTML = getDifficultyHtml(item.id, true); // 난이도 게이지 연동
             document.getElementById('infoDesc').innerText = item.desc;
             
             const obsText = item.obs;
