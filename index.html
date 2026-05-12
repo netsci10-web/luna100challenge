@@ -217,7 +217,13 @@
             display: inline-flex; align-items: center; gap: 4px;
             background: #3b82f6; color: white;
             padding: 4px 10px; border-radius: 20px;
-            font-size: 11px; font-weight: 700; margin-bottom: 12px;
+            font-size: 11px; font-weight: 700;
+        }
+        .mag-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: #6366f1; color: white;
+            padding: 4px 10px; border-radius: 20px;
+            font-size: 11px; font-weight: 700;
         }
         
         .leaflet-tooltip.hover-tooltip {
@@ -322,7 +328,7 @@
 
                     <!-- 내용 본문 -->
                     <div class="detail-body" id="detailBodyContent">
-                        <div id="infoMoonAge" class="moon-age-badge hidden">
+                        <div id="infoMoonAge" class="moon-age-badge hidden mb-3">
                             <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
                             <span>관측 월령: <span id="infoMoonAgeText"></span></span>
                         </div>
@@ -338,6 +344,14 @@
                             <div class="flex items-center gap-1.5">
                                 <span class="text-[10px] font-bold text-slate-400 tracking-tighter">난이도</span>
                                 <div id="infoDifficulty"></div>
+                            </div>
+                        </div>
+
+                        <!-- 최적 배율 (난이도와 설명글 사이로 이동) -->
+                        <div class="mb-3">
+                            <div id="infoMagBadge" class="mag-badge">
+                                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                <span>최적 배율: <span id="infoMagText"></span></span>
                             </div>
                         </div>
                         
@@ -551,6 +565,19 @@
         const markers = {};
         let activeHighlight = null;
         let shadowLayer = null; 
+
+        // 지형 크기에 따른 최적 관측 배율 산출 함수
+        function getOptimalMagnification(diam, id) {
+            if (id === 1) return "맨눈 (1x)";
+            if (id === 2) return "쌍안경 (7x ~ 10x)";
+            if (id === 3 || id === 95) return "맨눈 ~ 저배율 (10x ~ 30x)";
+            if (diam >= 400) return "저배율 (30x ~ 50x)";
+            if (diam >= 150) return "중저배율 (50x ~ 80x)";
+            if (diam >= 70) return "중배율 (80x ~ 120x)";
+            if (diam >= 30) return "고배율 (120x ~ 150x)";
+            if (diam >= 10) return "초고배율 (150x ~ 200x)";
+            return "극한배율 (200x 이상)"; // 10km 미만의 미세 지형
+        }
 
         // 월면좌표계 포맷 변환 함수
         function formatLunarCoords(lat, lng, isShort = false) {
@@ -768,8 +795,9 @@
             document.getElementById('infoBadge').innerText = `L${item.id}`;
             document.getElementById('infoTitle').innerText = item.name;
             document.getElementById('infoSig').innerText = item.sig;
-            document.getElementById('infoDifficulty').innerHTML = getDifficultyHtml(item.id, true); // 난이도 게이지 연동
+            document.getElementById('infoDifficulty').innerHTML = getDifficultyHtml(item.id, true);
             document.getElementById('infoDesc').innerText = item.desc;
+            document.getElementById('infoMagText').innerText = getOptimalMagnification(item.diam, item.id); // 최적 배율 적용
             
             const obsText = item.obs;
             const moonAgeMatch = obsText.match(/\[추천 관측 월령:\s*(.*?)\]/);
