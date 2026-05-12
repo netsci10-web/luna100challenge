@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>루나100 챌린지</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html {
+            margin: 0; padding: 0; height: 100%; width: 100%;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            background: #f8fafc;
+            overflow: hidden; /* 페이지 스크롤 방지, 내부 영역만 스크롤 허용 */
+        }
+        
+        #app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* 1. 상단 메인 지도 영역 */
+        #map-container {
+            flex: 45; /* 모바일 지도 비율 최적화 */
+            min-height: 35vh;
+            position: relative;
+            background: #000;
+            z-index: 10;
+        }
+        @media (min-width: 768px) { #map-container { flex: 55; } }
+        #map { height: 100%; width: 100%; }
+
+        /* 커스텀 마커 (L1~L100 뱃지 스타일) */
+        .custom-lunar-marker div {
+            background-color: rgba(30, 41, 59, 0.85);
+            color: white;
+            border: 1.5px solid #94a3b8;
+            border-radius: 50%;
+            width: 26px; height: 26px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; font-weight: 800;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            transition: all 0.2s;
+            margin-left: -13px; margin-top: -13px; /* 중앙 정렬 */
+        }
+        .custom-lunar-marker.observed div {
+            background-color: rgba(34, 197, 94, 0.95); /* 관측 완료 시 초록색 */
+            border-color: #ffffff;
+        }
+        
+        /* 파란색 원 아래에 표시될 이름 라벨 (마커 대체용) */
+        .bottom-name-label {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            color: #60a5fa !important; /* 파란색 */
+            font-size: 15px !important;
+            font-weight: 900 !important;
+            text-shadow: 1px 1px 4px #000, -1px -1px 4px #000, 1px -1px 4px #000, -1px 1px 4px #000;
+            margin-top: 4px;
+            white-space: nowrap;
+        }
+        .bottom-name-label::before { display: none !important; } /* 툴팁 화살표 꼬리 숨김 */
+
+        /* 진행률 바 */
+        .progress-bar-container { height: 4px; width: 100%; background: #e2e8f0; flex: none; z-index: 20; }
+        .progress-bar { height: 100%; background: #3b82f6; width: 0%; transition: width 0.3s; }
+
+        /* 2. 하단 컨트롤 & 뷰 영역 (리스트 + 상세 화면) */
+        #content-container {
+            flex: 55;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            z-index: 15;
+            position: relative;
+            overflow: hidden; /* 내부 뷰어들의 기준 영역 */
+        }
+        
+        .search-header {
+            padding: 12px 16px;
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex; align-items: center; gap: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            flex-shrink: 0; 
+        }
+
+        #view-manager {
+            flex-grow: 1;
+            position: relative;
+            overflow: hidden;
+            background: #f1f5f9;
+        }
+
+        /* A. 리스트 뷰 영역 */
+        #list-view {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch; 
+        }
+        .lunar-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px; padding: 12px; padding-bottom: 40px;
+        }
+        @media (min-width: 640px) { .lunar-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 1024px) { .lunar-grid { grid-template-columns: repeat(3, 1fr); } }
+        
+        .list-item {
+            cursor: pointer; border: 1px solid #e2e8f0; background: #ffffff;
+            transition: all 0.2s; padding: 12px; border-radius: 12px;
+            display: flex; align-items: center; gap: 12px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .list-item:active { transform: scale(0.98); }
+        .list-item.observed { background: #f0fdf4; border-color: #86efac; }
+        
+        .badge {
+            font-size: 11px; padding: 3px 6px; border-radius: 6px;
+            background: #334155; color: white; font-weight: 800;
+            flex-shrink: 0; min-width: 36px; text-align: center;
+        }
+        .check-btn {
+            width: 28px; height: 28px; border-radius: 50%;
+            border: 2px solid #cbd5e1;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.2s; background: white; flex-shrink: 0;
+        }
+        .check-btn.checked { background: #22c55e; border-color: #22c55e; color: white; }
+        
+        /* B. 상세 정보 뷰 영역 */
+        #detail-view {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: white; z-index: 30;
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex; flex-direction: column;
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
+        }
+        #detail-view.active { transform: translateX(0); }
+
+        .detail-header {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px);
+            padding: 10px 16px; border-bottom: 1px solid #e2e8f0;
+            display: flex; justify-content: space-between; align-items: center;
+            z-index: 31;
+        }
+        
+        /* 미니맵 영역 */
+        .detail-media-container {
+            width: 100%; height: 180px; 
+            background: #000; position: relative; flex-shrink: 0;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        #miniMap { width: 100%; height: 100%; } 
+        #infoImg { width: 100%; height: 100%; object-fit: cover; }
+
+        .observation-tip {
+            background: #f0f9ff; border-left: 4px solid #3b82f6;
+            padding: 12px; margin-top: 12px; border-radius: 8px;
+            font-size: 0.85rem; line-height: 1.5;
+        }
+        .coord-display {
+            position: absolute; bottom: 10px; right: 10px;
+            background: rgba(0, 0, 0, 0.6); color: white;
+            padding: 4px 10px; border-radius: 20px; font-size: 10px; z-index: 1500;
+            pointer-events: none; border: 1px solid rgba(255,255,255,0.2);
+        }
+        .leaflet-tooltip.hover-tooltip {
+            background: #1e293b !important; color: #f8fafc !important;
+            border: none !important; border-radius: 6px !important;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4); font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <!-- 1. 상단 메인 지도 영역 -->
+    <div id="map-container">
+        <div id="map"></div>
+        <div id="coordDisplay" class="coord-display">위도: 0.0000, 경도: 0.0000</div>
+    </div>
+
+    <div class="progress-bar-container"><div id="progressBar" class="progress-bar"></div></div>
+
+    <!-- 2. 하단 영역 -->
+    <div id="content-container">
+        <div class="search-header">
+            <div class="flex flex-col justify-center text-center">
+                <span class="text-xl leading-none">🌙</span>
+                <span id="progressText" class="text-[10px] font-bold text-blue-600 mt-1 whitespace-nowrap">0/100</span>
+            </div>
+            <div class="relative flex-grow">
+                <input type="text" id="searchInput" placeholder="지형 이름 또는 번호 검색..." 
+                       class="w-full pl-10 pr-3 py-2 bg-slate-100 border border-transparent rounded-xl text-sm focus:bg-white focus:border-blue-400 focus:outline-none transition-colors">
+                <svg class="absolute left-3 top-2.5 text-slate-400" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+        </div>
+        
+        <div id="view-manager">
+            <!-- 리스트 뷰 -->
+            <div id="list-view">
+                <div id="lunarList" class="lunar-grid"></div>
+            </div>
+
+            <!-- 상세 뷰 -->
+            <div id="detail-view">
+                <div class="detail-header">
+                    <button onclick="backToList()" class="flex items-center text-blue-600 font-bold text-sm bg-blue-50 px-3 py-1.5 rounded-lg active:bg-blue-100">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="mr-1"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
+                        돌아가기
+                    </button>
+                    <button id="infoCheckBtn" class="check-btn" onclick="toggleObservationFromInfo()">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    </button>
+                </div>
+                
+                <!-- 미디어: 실사 이미지 또는 잘라낸 미니맵 -->
+                <div class="detail-media-container">
+                    <img id="infoImg" src="" alt="지형 이미지" class="hidden">
+                    <div id="miniMap" class="hidden"></div>
+                </div>
+
+                <div class="p-5">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span id="infoBadge" class="badge">L1</span>
+                        <h2 id="infoTitle" class="text-xl font-bold text-slate-900 leading-tight"></h2>
+                    </div>
+                    <p id="infoSig" class="text-[11px] font-bold text-blue-600 mb-3 uppercase tracking-tight"></p>
+                    <p id="infoDesc" class="text-sm text-slate-700 leading-relaxed"></p>
+                    
+                    <div class="observation-tip">
+                        <h4 class="text-xs font-black text-slate-900 flex items-center gap-1 mb-1">🔭 망원경 관측 가이드</h4>
+                        <p id="infoObs" class="italic text-slate-600 text-sm"></p>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-slate-200 text-xs text-slate-500 flex justify-between font-mono">
+                        <span>좌표: <span id="infoCoords"></span></span>
+                        <span>크기: <span id="infoDiam"></span>km</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // 100개 지형 상세 데이터베이스 (모든 데이터 완비)
+        const lunar100Data = [
+            {id:1, name:"달 (Moon)", sig:"지구의 위성", lat:4, lng:-4, diam:0, desc:"우리의 영원한 동반자이자 우주로 나아가는 첫 관문. 표면의 어두운 바다와 밝은 고지대가 이루는 무늬는 맨눈으로도 선명하게 확인할 수 있습니다.", obs:"맨눈으로 토끼 무늬를 상상해보거나, 7x50 쌍안경을 통해 달 표면에 무수히 흩어진 충돌구들을 감상해보세요.", img:"https://upload.wikimedia.org/wikipedia/commons/e/e1/FullMoon2010.jpg"},
+            {id:2, name:"지구광 (Earthshine)", sig:"지구 반사광", lat:-4, lng:4, diam:0, desc:"지구의 바다와 구름에서 반사된 태양빛이 다시 달의 어두운 그림자 부분을 비추는 환상적인 천문 현상입니다.", obs:"초승달이나 그믐달 시기에 달의 어두운 면이 신비로운 푸른 재처럼 빛나는 모습을 맨눈이나 쌍안경으로 관찰할 수 있습니다.", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Earthshine_moon.jpg/800px-Earthshine_moon.jpg"},
+            {id:3, name:"바다/고지대 이분법", sig:"조성 차이", lat:4, lng:4, diam:0, desc:"달의 앞면은 주로 어두운 현무암질 '바다'로 덮여 있는 반면, 고지대는 밝은 사장암으로 이루어져 달의 지각 형성 역사를 보여줍니다.", obs:"저배율 망원경이나 쌍안경으로 밝고 거친 고지대와 매끄럽고 어두운 바다 지형의 경계를 따라 스윕(Sweep)하며 관찰하세요.", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Moon_back_-_LRO_2010_10_Mosaic.jpg/800px-Moon_back_-_LRO_2010_10_Mosaic.jpg"},
+            {id:4, name:"아펜니노 산맥", sig:"분지 테두리", lat:18.9, lng:-3.7, diam:70, desc:"비의 바다(Mare Imbrium) 형성 시 충격파로 융기된 산맥. 최고 높이가 5,000m에 달하며 달에서 가장 웅장하고 높은 산맥입니다.", obs:"상현달 직후(월령 7~8일) 명암경계선이 산맥에 걸칠 때 관찰하면 험준한 봉우리들이 던지는 길고 예리한 그림자를 볼 수 있습니다."},
+            {id:5, name:"코페르니쿠스", sig:"복합 크레이터", lat:9.7, lng:-20.1, diam:93, desc:"직경 93km, 깊이 3.8km의 거대한 크레이터로 다중 중앙 봉우리와 테라스(계단식) 구조의 안쪽 벽면이 돋보이는 '달의 군주'입니다.", obs:"월령 9~10일경 내부의 중앙 봉우리와 다층 계단식 벽을 고배율로 관측하세요. 보름달에는 주변을 뒤덮는 광조를 확인하세요."},
+            {id:6, name:"티코", sig:"광조 크레이터", lat:-43.3, lng:-11.1, diam:85, desc:"약 1억 년 전 형성된 매우 젊은 크레이터. 달 전역으로 수천 km나 뻗어나가는 달 최대 규모의 눈부신 광조(Ray) 체계 중심지입니다.", obs:"보름달 전후에 달 표면의 절반을 가로지르는 광조를 저배율에서 확인하고, 중심의 날카로운 봉우리를 고배율로 탐사하세요."},
+            {id:7, name:"알타이 절벽", sig:"분지 단층", lat:-24.3, lng:22.6, diam:425, desc:"과거 감로주의 바다를 만든 거대 충돌로 인해 지각이 무너져 내리며 형성된 400km 길이의 거대한 아크형 절벽 지형입니다.", obs:"월령 5일경 사선광이 비출 때, 초승달 모양으로 둥글게 굽어진 긴 절벽 단층의 그림자를 찾아보세요."},
+            {id:8, name:"테오필루스, 키릴루스, 카타리나", sig:"침식 단계", lat:-13.2, lng:24.0, diam:100, desc:"세 개의 거대한 크레이터가 나란히 위치하며, 각각 생성 시기가 달라 충돌구의 침식(노화) 단계를 비교하기에 완벽한 대상입니다.", obs:"봉우리가 가장 예리한 테오필루스부터 완전히 둥글게 풍화된 카타리나까지 3단계를 비교하며 관측하세요."},
+            {id:9, name:"클라비우스", sig:"거대 크레이터", lat:-58.8, lng:-14.1, diam:225, desc:"지름 225km에 달하는 남부 고지대의 거대 분화구. 내부에 크기가 점차 줄어드는 일련의 작은 분화구들이 반원을 그리며 배열되어 있습니다.", obs:"망원경의 분해능 테스트로 제격입니다. 내부의 작은 구덩이들을 크기순으로 어디까지 세어낼 수 있는지 도전해보세요."},
+            {id:10, name:"위난의 바다", sig:"독립 분지", lat:18.0, lng:59.0, diam:540, desc:"달 전면의 우측 가장자리에 홀로 동떨어져 있는 바다. 약 39억 년 전 충돌로 생겼으며 형태가 보존된 완벽한 타원형입니다.", obs:"초승달 시기 가장 먼저 관측할 수 있습니다. 바다 안쪽에 동심원을 그리는 얇은 주름 능선(Wrinkle ridge)을 탐사하세요."},
+            {id:11, name:"아리스타르쿠스", sig:"가장 밝은 충돌구", lat:23.7, lng:-47.4, diam:40, desc:"알베도(반사율)가 유난히 높아 달 표면에서 가장 눈부시게 빛납니다. 주변은 화산재로 덮여있어 지질학적으로 활발했던 지역입니다.", obs:"보름달 시기에 너무 밝아 시야를 방해할 수 있으므로, 관측 시 달 필터(ND 필터)를 사용하여 디테일을 살려보세요."},
+            {id:12, name:"프로클루스", sig:"비대칭 광조", lat:16.1, lng:46.8, diam:28, desc:"위난의 바다 근처에 위치하며, 운석이 극도로 낮은 각도로 빗겨 충돌해 방사형이 아닌 부채꼴 모양의 비대칭 광조를 형성했습니다.", obs:"보름달 시기에 프로클루스를 중심으로 한쪽으로만 넓게 퍼져나가는 흰색 빛줄기의 방향성을 확인하세요."},
+            {id:13, name:"가생디", sig:"갈라진 크레이터", lat:-17.5, lng:-40.1, diam:101, desc:"습기의 바다 북쪽 가장자리에 위치하며, 밑바닥 마그마의 압력으로 바닥이 부풀어올라 거미줄 같은 수많은 균열이 생겼습니다.", obs:"월령 10일경 명암경계선 근처일 때, 크레이터 바닥을 덮고 있는 미세한 균열(릴) 네트워크를 고배율로 추적하세요."},
+            {id:14, name:"무지개 만", sig:"반원형 만", lat:45.0, lng:-32.0, diam:260, desc:"과거의 완전한 크레이터였으나 한쪽 벽이 무너져 비의 바다로 녹아든 아름다운 반원형 지형. 가장자리를 쥐라 산맥이 감싸고 있습니다.", obs:"월령 10~11일경 해가 뜰 무렵, 쥐라 산맥 봉우리들이 먼저 빛을 받아 반원형으로 빛나는 '골든 핸들' 효과가 장관입니다."},
+            {id:15, name:"직선 절벽 (Rupes Recta)", sig:"유명한 단층", lat:-21.8, lng:-7.8, diam:110, desc:"구름의 바다 서쪽에 자리한 달에서 가장 뚜렷하게 관측되는 직선 단층입니다. 실제로는 절벽이 아닌 7도 정도의 완만한 경사입니다.", obs:"상현달 시기(월령 8일경)에는 길고 검은 선으로 보이며, 하현달 시기에는 햇빛을 마주보며 반사해 밝고 하얀 선으로 반전되어 보입니다."},
+            {id:16, name:"페타비우스", sig:"복합 릴", lat:-25.1, lng:60.4, diam:177, desc:"동쪽 가장자리 근처의 거대 충돌구로, 바닥 중앙 봉우리에서 뻗어 나와 벽면까지 가로지르는 매우 깊고 거대한 균열이 특징입니다.", obs:"월령 3일경, 태양빛이 얕게 비출 때 바닥의 갈라진 거대한 틈새를 150배 이상의 배율로 들여다보세요."},
+            {id:17, name:"슈뢰터 계곡", sig:"거대 사행 릴", lat:26.2, lng:-50.8, diam:168, desc:"아리스타르쿠스 고원에 뱀처럼 구불구불하게 파인 달 최대의 용암 수로. 폭 10km, 깊이 1km에 달하는 거대한 계곡입니다.", obs:"고원 위로 굽이치는 '코브라 머리' 모양의 입구를 찾은 뒤, 끝을 향해 구불구불 흐르는 계곡의 자취를 따라가보세요."},
+            {id:18, name:"맑음의 바다 연변", sig:"성분 차이", lat:17.8, lng:23.0, diam:100, desc:"맑음의 바다는 다층의 용암으로 덮여 있어, 중심부의 젊은 용암과 주변부의 오래된 용암의 티타늄 성분 차이로 가장자리가 더 어둡습니다.", obs:"보름달이 될 무렵 밝은 달빛 아래에서 바다 가장자리를 따라 짙은 테두리가 형성된 모습을 관찰하세요."},
+            {id:19, name:"알프스 계곡", sig:"달의 지구대", lat:49.0, lng:3.0, diam:165, desc:"알프스 산맥을 166km에 걸쳐 직선으로 두 동강 낸 거대한 골짜기(지구대). 바닥 중심에는 아주 가느다란 릴이 흐르고 있습니다.", obs:"계곡 바닥 한가운데를 가로지르는 폭 1km 미만의 실개천(릴)을 분해해 내는 것은 대구경 망원경의 관측 챌린지 중 하나입니다."},
+            {id:20, name:"포시도니우스", sig:"훼손된 크레이터", lat:31.8, lng:29.9, diam:95, desc:"맑음의 바다 동쪽에 있는 크레이터. 마그마가 내부를 채우면서 바닥이 융기하고, 벽면이 무너져 복잡한 주름과 틈새가 형성되었습니다.", obs:"상현달 전후 사선광이 비칠 때 바닥에 굽이치는 가느다란 주름 능선들과 갈라진 릴 구조를 주의 깊게 확인하세요."},
+            {id:21, name:"프라카스토리우스", sig:"침수된 크레이터", lat:-21.5, lng:33.2, diam:124, desc:"감로주의 바다에 접해 있으며 북쪽 테두리가 용암에 완전히 녹아내려 바다와 하나가 된 말굽 모양의 반쪽 크레이터입니다.", obs:"감로주의 바다 가장자리에서 테두리가 허물어져 평평한 바다로 이어지는 개방형 구조를 확인하세요."},
+            {id:22, name:"아리스타르쿠스 고원", sig:"화산 퇴적", lat:26.0, lng:-51.0, diam:150, desc:"폭풍의 대양 한가운데 떠 있는 거대한 마름모꼴 화산 고원. 주변 평원보다 최대 2km 높으며 표면이 노란 화산재로 덮여 있습니다.", obs:"일반 바다의 현무암 질감과 대비되는 고원의 약간 누렇고 붉은빛이 도는 톤을 컬러 필터를 사용해 비교 관측해 보세요."},
+            {id:23, name:"피코 산", sig:"고립된 봉우리", lat:45.7, lng:-8.9, diam:25, desc:"과거 비의 바다 분지를 형성한 거대 내부 산맥 고리의 파편으로, 넓은 용암 평원 위에 높이 2.4km로 외롭게 솟아오른 산봉우리입니다.", obs:"월령 8일경 명암경계선에 위치할 때 산이 평원 위로 던지는 바늘같이 뾰족하고 거대한 그림자를 감상하세요."},
+            {id:24, name:"히기누스 릴", sig:"구덩이 사슬", lat:7.4, lng:7.8, diam:220, desc:"가운데 위치한 히기누스 크레이터(충돌이 아닌 화산성 함몰)를 중심으로 양쪽으로 V자형으로 뻗어나가며 함몰된 구덩이 사슬 계곡입니다.", obs:"중심이 꺾인 V자 형태의 릴을 확인하고, 릴의 틈새를 따라 염주알처럼 박혀 있는 화산성 핏(Pit)들을 구별해보세요."},
+            {id:25, name:"메시에 쌍둥이", sig:"도탄 충돌", lat:-1.9, lng:47.6, diam:11, desc:"소행성이 달 표면에 1~5도의 극도로 낮은 각도로 스치듯 충돌하고 튕겨 나가면서(도탄) 나란히 형성된 독특한 타원형 쌍둥이 크레이터입니다.", obs:"비스듬한 충돌의 증거로 크레이터 서쪽이 아닌 동쪽으로만 곧게 뻗어 나간 두 가닥의 혜성 꼬리 모양 광조를 확인하세요."},
+            {id:26, name:"추위의 바다", sig:"길쭉한 바다", lat:56.0, lng:1.4, diam:1600, desc:"달의 북반구 상단을 따라 띠 모양으로 길게 늘어선 비정형 바다. 다른 둥근 바다들과는 기원이 다를 것으로 추정됩니다.", obs:"달 북쪽 가장자리를 따라 수평으로 광활하게 펼쳐진 특유의 좁고 긴 띠 모양 실루엣을 전체적으로 훑어보세요."},
+            {id:27, name:"아르키메데스", sig:"용암 바닥", lat:29.7, lng:-4.0, diam:83, desc:"아펜니노 산맥 근처 대형 충돌구. 비의 바다가 형성된 후 내부에 대량의 용암이 차올라 중앙 봉우리를 완전히 파묻어버린 매끈한 지형입니다.", obs:"크레이터 안쪽 바닥에 중앙 봉우리나 균열이 전혀 없이 마치 스케이트장처럼 극도로 매끄러운 질감을 고배율로 확인하세요."},
+            {id:28, name:"히파르쿠스", sig:"침식 크레이터", lat:-5.5, lng:4.8, diam:150, desc:"가운데 위치한 직경 150km의 고대 크레이터. 수십억 년간 이어진 무수한 우주 파편의 폭격으로 테두리가 심하게 마모되었습니다.", obs:"바로 남쪽에 위치한 비교적 젊은 알폰수스 크레이터의 뚜렷한 외곽선과 비교하며 시간의 풍화 작용을 직접 느껴보세요."},
+            {id:29, name:"아리다에우스 릴", sig:"선형 지구대", lat:6.4, lng:14.0, diam:250, desc:"달의 지각이 양옆으로 찢어지며 바닥이 아래로 주저앉아 생긴 길이 250km, 폭 4.5km의 매우 곧고 선명한 협곡(지구대)입니다.", obs:"인근의 히기누스 릴이 구불구불한 것과 대조적으로, 마치 자를 대고 그은 듯 직선으로 깊게 파인 골짜기를 100배 이상의 배율로 관측하세요."},
+            {id:30, name:"실러", sig:"장방형 충돌구", lat:-51.9, lng:-39.0, diam:180, desc:"남서쪽 고지대에 위치하며, 두세 개의 소행성이 연달아 비스듬히 떨어졌거나 매우 얕은 각도로 충돌하여 생긴 길쭉한 고구마 모양 지형입니다.", obs:"달의 남서쪽 끄트머리에서 다른 동그란 분화구들과 확연히 이질적인 '신발 밑창' 모양의 긴 실루엣을 찾아보세요."},
+            {id:31, name:"타룬티우스", lat:5.6, lng:46.5, diam:56, sig:"내부 균열", desc:"비교적 젊은 충돌구로, 지반 밑의 마그마가 솟아오르는 압력 때문에 바닥 표면이 양파 껍질처럼 갈라진 형태를 띱니다.", obs:"명암경계선 부근에서 고배율(150배 이상)을 사용하여 둥근 바닥 내부를 가로지르는 미세한 동심원상 균열들을 관찰하세요."},
+            {id:32, name:"아라고 알파 & 베타", lat:6.2, lng:21.4, diam:26, sig:"화산 돔", desc:"고요의 바다 서쪽에 자리한 화산 돔들로, 용암이 조용히 솟아올라 굳으면서 만든 폭 26km, 높이 300m 수준의 매우 완만한 방패형 언덕입니다.", obs:"경사가 매우 완만하므로, 태양광이 거의 수평으로 들어오는 월령 5~6일경 사선광 아래에서만 부드러운 언덕의 입체감이 드러납니다."},
+            {id:33, name:"뱀 모양 능선", lat:27.3, lng:25.3, diam:155, sig:"주름 능선", desc:"맑음의 바다를 남북으로 횡단하며 뱀이 기어가는 듯 굽이치는 능선. 용암 평원이 식으면서 수축할 때 표면이 구겨져 형성되었습니다.", obs:"저각도 조명이 비칠 때 바다 평면 위로 튀어나온 구불구불한 그림자 선을 통해 지형의 높낮이와 능선의 흐름을 체감하세요."},
+            {id:34, name:"죽음의 호수 (Lacus Mortis)", lat:45.0, lng:27.2, diam:152, sig:"내부 단층", desc:"한때 거대한 분화구였으나 용암에 침수되어 평원이 된 지역. 내부에는 과거 지질 활동으로 생긴 깊은 릴과 복잡한 단층이 산재합니다.", obs:"평평한 어두운 바닥 지형을 가로지르며 길게 난 뚜렷한 선형 구조물(Burg 크레이터 옆의 릴)을 집중적으로 탐사하세요."},
+            {id:35, name:"트리스네커 릴", lat:4.3, lng:4.6, diam:215, sig:"릴 네트워크", desc:"중앙의 중앙만의 크레이터 동쪽에 핏줄이나 나뭇가지처럼 복잡하게 얽히고설켜 퍼져 나가는 폭 1~2km의 대규모 릴 시스템입니다.", obs:"150배 이상의 배율과 좋은 대기 상태(Seeing)에서, 북에서 남으로 흐르다 여러 갈래로 갈라지는 섬세한 틈새망을 추적해보세요."},
+            {id:36, name:"그리말디 분지", lat:-5.5, lng:-68.3, diam:440, sig:"어두운 바닥", desc:"달 표면에서 가장 어두운 알베도(약 6%)를 가진 지역 중 하나. 태양계 형성 초기 거대 충돌로 파인 2중 고리 분지의 잔해입니다.", obs:"보름달 시기에 밝은 고지대와 확연히 대비되는 극도로 짙은 먹물 같은 검은색 패치를 달의 서쪽 가장자리 근처에서 확인하세요."},
+            {id:37, name:"베이이", lat:-66.5, lng:-69.1, diam:303, sig:"거대 분지", desc:"달 앞면에서 보이는 가장 거대한 크레이터급 지형. 그러나 남서쪽 극단에 치우쳐 있어 형태가 심하게 일그러진 타원으로만 보입니다.", obs:"달의 남서쪽 칭동(Libration)이 우리 쪽으로 기울어질 때만 전체 테두리의 장엄함을 지평선 끝자락에서 가늠해볼 수 있습니다."},
+            {id:38, name:"사빈 & 리터", lat:1.7, lng:19.7, diam:30, sig:"쌍둥이 지형", desc:"고요의 바다 서남쪽에 위치한 쌍둥이 크레이터. 크기와 모양이 거의 같으며, 근처에 인류 최초의 달 착륙선이 내렸습니다.", obs:"이 나란한 두 크레이터를 출발점으로 삼아 동쪽 평원으로 시선을 이동하여 아폴로 11호의 대략적인 착륙 위치를 가늠하는 지표로 씁니다."},
+            {id:39, name:"쉬카르드", lat:-44.3, lng:-55.3, diam:227, sig:"바닥 줄무늬", desc:"남서쪽 가장자리의 직경 227km 크레이터. 동방의 바다 형성 시 날아온 분출물이 크레이터 바닥을 덮으며 얼룩무늬를 형성했습니다.", obs:"거대한 분화구의 바닥 평면에 밝은 모래와 어두운 토양이 섞여 붓질을 한 것처럼 남겨진 줄무늬 패턴의 명암 대비를 살펴보세요."},
+            {id:40, name:"얀센 릴", lat:-45.4, lng:39.3, diam:190, sig:"고지대 릴", desc:"주로 바다에서 발견되는 릴 지형이 특이하게도 남부 고지대의 거대한 얀센 크레이터 바닥을 넓게 굽이쳐 흐르는 희귀한 지형입니다.", obs:"형태를 알기 어려울 만큼 훼손된 거대한 얀센 분화구 내부를 관통하며 초승달처럼 깊게 곡선을 그리는 협곡을 확인하세요."},
+            {id:41, name:"베셀 광조", lat:21.8, lng:17.9, diam:50, sig:"기원 불명", desc:"맑음의 바다 중앙을 남북으로 곧게 가로지르는 미스터리한 긴 흰색 선형 광조. 어느 크레이터에서 비롯되었는지 명확하지 않습니다.", obs:"보름달 근처, 태양광이 달 표면을 수직으로 내리쬘 때 바다 한가운데를 자르듯 지나가는 명확하고 하얀 직선을 쉽게 발견할 수 있습니다."},
+            {id:42, name:"마리우스 언덕", lat:12.5, lng:-54.0, diam:125, sig:"화산 군락", desc:"폭풍의 대양 서쪽에 300개가 넘는 작은 화산 돔과 구릉이 옹기종기 밀집해 있는 달 최대의 화산 활동 중심 구역입니다.", obs:"해가 막 뜨거나 질 무렵 조명 각도가 매우 낮을 때 관측해야, 평원 위로 오돌토돌하게 솟은 수많은 작은 돔들의 질감이 드러납니다."},
+            {id:43, name:"바르겐틴", lat:-49.6, lng:-60.2, diam:84, sig:"용암 고원", desc:"크레이터 형선 후 내부 틈새로 용암이 솟아올라 테두리 밖으로 넘치기 직전까지 꽉 채워진 채로 굳어버린 희귀한 역전형 분화구입니다.", obs:"일반적인 분화구가 푹 파인 밥그릇 모양인 것과 달리, 지면 위로 둥글게 솟아오른 원반이나 고원 형태를 띠는 입체감을 비교해보세요."},
+            {id:44, name:"메르세니우스", lat:-21.5, lng:-49.2, diam:84, sig:"볼록한 바닥", desc:"지반 아래 얕은 마그마 굄층의 압력으로 크레이터 바닥이 위로 거품처럼 부풀어 올라 돔 형태를 띠게 된 독특한 지형입니다.", obs:"태양 고도가 낮을 때 내부 테두리 아래로 드리워진 그림자 곡선을 잘 살펴보면, 바닥 중앙이 위로 불룩하게 솟은 것을 느낄 수 있습니다."},
+            {id:45, name:"모로리쿠스", lat:-42.0, lng:14.0, diam:114, sig:"중첩 충돌", desc:"달 남부 고지대의 특징을 잘 보여주는 곳으로, 충돌이 너무 잦아 크레이터 안에 또 크레이터가 생기며 지형이 극도로 포화된 지역입니다.", obs:"수많은 분화구들이 서로의 테두리를 갉아먹고 겹쳐져 있는 거칠고 혼란스러운 달 초기의 충돌 역사를 한눈에 감상하세요."},
+            {id:46, name:"레기오몬타누스 픽", lat:-28.0, lng:-0.6, diam:124, sig:"화산성 봉우리", desc:"보통 크레이터의 정중앙에 솟는 중앙 봉우리와 달리, 한쪽으로 치우쳐 솟은 기이한 봉우리로 화산 활동 기원이라는 가설이 있습니다.", obs:"높이 1,200m의 봉우리 꼭대기에 뚫려 있는 작은 5km 직경의 구덩이(화산 칼데라로 의심)를 200배 이상의 고배율로 분해해 찾아보세요."},
+            {id:47, name:"알폰수스 암점", lat:-13.7, lng:-3.2, diam:119, sig:"화산재 분출", desc:"아름다운 알폰수스 크레이터 바닥의 가장자리를 따라 짙게 분포하는 3개의 어두운 반점. 과거의 국지적 화쇄류 분출 흔적입니다.", obs:"밝은 바닥 평면 대비 뚜렷하게 검은 반점 세 개를 먼저 찾고, 대기 상태가 좋다면 검은 반점 중앙에 뚫린 작은 화산구를 확인해보세요."},
+            {id:48, name:"코시 지역", lat:10.5, lng:38.0, diam:130, sig:"단층과 릴", desc:"고요의 바다 동쪽에 코시 크레이터를 중앙에 두고 북쪽으론 깊은 단층(Rupes), 남쪽으론 틈새 릴(Rima)이 평행하게 달리는 지질 교과서입니다.", obs:"크레이터를 사이에 두고 철길처럼 나란히 놓인 두 개의 뚜렷한 선 구조를 파악하고, 단층이 만드는 그림자와 릴이 파인 음영을 비교하세요."},
+            {id:49, name:"그루이투이젠 돔", lat:36.3, lng:-40.0, diam:20, sig:"규산염 돔", desc:"점성이 낮은 일반 현무암질 달 화산과 달리, 지구의 화산처럼 점성이 높은 규산염 마그마가 밀려 올라와 가파르게 굳어진 산입니다.", obs:"비의 바다 가장자리에서 델타와 감마라는 이름의 두 산이 주변의 완만한 언덕들과 달리 꽤 경사지고 뭉툭하게 솟은 형태를 관찰하세요."},
+            {id:50, name:"케일리 평원", lat:4.0, lng:15.1, diam:14, sig:"밝은 평원", desc:"화산 활동이 닿지 않은 험준한 고지대임에도 호수처럼 매우 매끄러운 바닥을 가진 미스터리 평원으로, 아폴로 16호가 착륙해 수수께끼를 풀었습니다.", obs:"프톨레마이오스 크레이터 동쪽의 울퉁불퉁하고 복잡한 고지대 지형들 사이로, 이상하리만치 매끄럽게 펼쳐진 지형의 빈틈을 찾아보세요."},
+            {id:51, name:"데비 크레이터 체인", lat:-11.1, lng:-6.6, diam:50, sig:"혜성 파편", desc:"조석력에 의해 여러 조각으로 쪼개진 혜성이나 소행성의 파편들이 기관총을 쏘듯 달 표면에 연달아 떨어지며 만든 일렬의 구덩이 사슬입니다.", obs:"지름 1~3km의 작은 구멍 20여 개가 50km 길이로 선형으로 늘어선 모습을 최대한 고배율 망원경을 사용하여 여러 개의 점으로 분해해 내세요."},
+            {id:52, name:"크뤼거", lat:-16.7, lng:-66.8, diam:45, sig:"용암 칼데라", desc:"달의 서남쪽 고지대 구석에 있는 크레이터. 내부에 극도로 어두운 현무암질 용암이 고여 있어 고대의 거대한 화산 칼데라로 추정되는 곳입니다.", obs:"주변의 눈부시게 밝고 거친 고지대 지형과 완벽히 대조를 이루며, 잉크를 풀어놓은 듯 짙은 검은색 원형 바닥의 이질적인 모습을 확인하세요."},
+            {id:53, name:"라몽", lat:4.4, lng:23.7, diam:106, sig:"묻힌 분지", desc:"고요의 바다 수면 아래 깊숙한 곳에 파묻혀 형체가 사라진 고대 충돌 분지의 뼈대. 수축하는 과정에서 표면에 주름 능선을 남겨 존재를 알렸습니다.", obs:"태양광이 스치듯 지나가는 일출이나 일몰 시기에만 관측되며, 바다 한가운데에 동심원상으로 배열된 희미한 두 겹의 주름들을 포착해보세요."},
+            {id:54, name:"히팔루스 릴", lat:-24.5, lng:-29.0, diam:240, sig:"동심원 릴", desc:"습기의 바다(Mare Humorum) 분지가 지반 침하를 겪을 때 가장자리가 버티지 못하고 찢어지며 생긴, 분지 둘레를 따라 도는 거대한 호 모양의 릴입니다.", obs:"습기의 바다 동쪽 경계를 따라 나란히 곡선을 그리는 2~3가닥의 선명한 틈새를 찾아보고, 이 틈새들이 히팔루스 크레이터를 어떻게 관통하는지 보세요."},
+            {id:55, name:"바코", lat:-51.0, lng:19.1, diam:69, sig:"매끄러운 내부", desc:"크레이터들로 포화되어 온통 울퉁불퉁한 달 남부 고지대 한가운데서, 유난히 분출물이나 2차 충돌구 없이 매끄러운 바닥을 유지하고 있는 예외적 지형입니다.", obs:"주변 지형은 무수한 운석 구덩이로 거칠고 복잡한데 반해, 바코 내부만큼은 마치 쓸어낸 듯 평평하고 고요한 모습의 기묘한 단절감을 감상하세요."},
+            {id:56, name:"남쪽의 바다", lat:-49.8, lng:84.5, diam:880, sig:"경계 분지", desc:"달 앞면과 뒷면의 경계인 남동쪽 가장자리에 위치해 지구에서는 절반 이하만 보이는 거대 바다 분지. 오래된 지형 위에 용암이 불규칙하게 고여 있습니다.", obs:"칭동(Libration)이 남동쪽으로 유리할 때만 지평선 부근에서, 여러 크레이터 바닥을 채우고 있는 불규칙하고 짙은 검은색의 얼룩 패치들을 엿볼 수 있습니다."},
+            {id:57, name:"라이너 감마", lat:7.7, lng:-59.2, diam:70, sig:"소용돌이", desc:"폭풍의 대양 서쪽에 뚜렷한 올챙이 모양으로 빛나는 지형. 달 표면에 존재하는 강한 국지적 자기장이 태양풍을 차단해 우주 풍화를 막아 밝게 남은 미스터리 무늬입니다.", obs:"보름달이 가까워질 무렵 그림자가 사라지면, 짙은 회색의 바다 위에 마치 밀가루를 흩뿌려 놓은 듯 선명하게 빛나는 하얀 소용돌이 형태를 뚜렷하게 관찰하세요."},
+            {id:58, name:"레이타 계곡", lat:-42.5, lng:51.5, diam:445, sig:"이차 충돌구", desc:"근처 거대한 넥타르(감로주) 분지 형성 시 발생한 충돌로 튕겨 나간 어마어마한 양의 파편들이 남서쪽으로 날아가며 지면을 빗자루처럼 긁어 파낸 폭 30km, 길이 500km의 골짜기입니다.", obs:"월령 4~5일 사선광 아래에서 북동에서 남서 방향으로 굵고 깊게 파인 거대한 계곡의 질감을 보며, 당시 쏟아져 내린 파편 폭풍의 파괴력을 유추해보세요."},
+            {id:59, name:"실러-주키우스", lat:-56.0, lng:-45.0, diam:335, sig:"훼손 분지", desc:"달 남서쪽 가장자리의 고대 다중 고리 분지. 형성된 이후 쉴 새 없는 운석 충돌로 인해 테두리가 깎이고 덮여 현재는 형체를 알아보기조차 힘든 뼈대만 남은 지역입니다.", obs:"분명한 크레이터는 아니지만, 주변에 배치된 산맥과 융기선들의 미묘한 배열 곡선을 따라가다 보면 직경 335km에 달하는 거대한 원형 구조를 마음속에 그릴 수 있습니다."},
+            {id:60, name:"키스 파이 돔", lat:-26.9, lng:-24.2, diam:45, sig:"전형적 화산", desc:"구름의 바다에 위치한 키스 크레이터 바로 옆, 현무암질 용암이 천천히 여러 번 흘러나와 층을 이루며 굳어진 전형적인 달의 쉴드 화산(방패 화산) 돔 지형입니다.", obs:"경사가 2도 미만으로 매우 완만하여 평소엔 보이지 않습니다. 태양 고도가 극단적으로 낮은 순간을 포착하고, 200배 이상의 고배율로 정상에 뚫린 작은 칼데라를 확인하세요."},
+            {id:61, name:"뫼스티히 A", lat:-3.2, lng:-5.2, diam:13, sig:"중심 크레이터", desc:"달 원반의 기하학적 중심에 아주 가깝게 위치한 지름 13km의 신선하고 밝은 단순 크레이터. 달 관측 및 지도 제작 시 좌표를 영점 조절하는 중요한 기점 역할을 합니다.", obs:"달의 중심을 가늠할 때 나침반처럼 사용하세요. 작지만 아주 깊은 그릇 모양으로 깊게 파여 있어 내부 벽면에 지는 그림자가 선명하고 가장자리가 밝게 빛납니다."},
+            {id:62, name:"륌커 돔", lat:40.8, lng:-58.1, diam:70, sig:"화산 복합체", desc:"폭풍의 대양 북서쪽 고립된 지역에 수십 개의 화산 돔들이 한데 엉겨 붙고 겹겹이 쌓여 하나의 거대한 대지를 형성한 직경 70km의 복잡한 대규모 화산 복합 융기대입니다.", obs:"명암경계선이 이곳을 스칠 때 150배 이상의 배율로 들여다보면, 거대한 하나의 덩어리 위에 마치 뇌 표면이나 주름처럼 오돌토돌한 수많은 작은 언덕 무리들을 감상할 수 있습니다."},
+            {id:63, name:"비의 바다 조각", lat:11.0, lng:12.0, diam:50, sig:"방사형 상흔", desc:"지름 1100km의 비의 바다(Imbrium)를 만든 초대형 운석 충돌의 여파로, 날아간 산더미만한 파편들이 표면에 떨어져 긁고 간 깊은 방사형 골짜기와 융기 자국들의 통칭입니다.", obs:"프톨레마이오스와 알폰수스 근처 고지대에서, 북서쪽(비의 바다 방향)에서 남동쪽 방향으로 지형들이 일제히 빗질을 당한 것처럼 쭉쭉 길게 깎여나간 빗살무늬 흔적을 봅니다."},
+            {id:64, name:"데카르트", lat:-11.7, lng:15.7, diam:48, sig:"아폴로 16호", desc:"바다가 아닌 달 고지대에 예외적으로 매끄러운 물질이 쌓여 있어 과거엔 화산재로 오해받았던 케일리 평원이 있으며, 아폴로 16호 우주비행사들이 착륙해 충돌 분출물임을 밝혀낸 역사적 지점입니다.", obs:"주변의 거칠고 오래된 달 고지대 산맥 지형과 비교하여, 유난히 밝게 빛나면서도 호수처럼 매끄러운 질감을 띤 케일리 평원(Cayley Plains)의 광역적인 퍼짐을 확인하세요."},
+            {id:65, name:"호르텐시우스 돔", lat:7.6, lng:-27.9, diam:10, sig:"돔 군락", desc:"코페르니쿠스 크레이터 서남쪽 넓은 용암 평원 위에 폭 6~8km, 높이 400m 남짓의 반구형 화산 돔 반 다스가 여드름처럼 옹기종기 무리 지어 솟아 있는 대표적 돔 군락지입니다.", obs:"태양광이 수평에 가깝게 들어올 때 그림자가 길어지며 돔의 윤곽이 드러납니다. 6개 이상의 돔을 분별해내고 그중 몇 개의 정상에 있는 1km 이하의 작은 함몰 구멍을 관측해보세요."},
+            {id:66, name:"해들리 릴", lat:25.0, lng:3.0, diam:80, sig:"아폴로 15호", desc:"폭 1.5km, 깊이 300m로 130km를 굽이쳐 흐르는 달의 3대 사행성 릴 중 하나. 과거 용암이 흘렀던 튜브가 무너져 내린 것으로, 아폴로 15호 월면차가 직접 이 계곡 가장자리를 달렸습니다.", obs:"장엄한 아펜니노 산맥의 북쪽 기슭을 따라 구불구불 흐르는 가느다란 실선 모양의 협곡을 200배 이상의 고배율과 안정적인 대기 조건(Seeing) 하에서 끝까지 추적해 찾아내보세요."},
+            {id:67, name:"프라 마우로", lat:-3.6, lng:-17.5, diam:100, sig:"분출물 고원", desc:"비의 바다 거대 충돌 때 튀어나온 암석과 흙먼지가 남쪽으로 수백 km를 날아와 수백 미터 두께로 쌓이면서, 원래 있던 크레이터들을 덮어버리고 거칠게 융기한 고원. 아폴로 14호의 목표였습니다.", obs:"월령 8~9일경 사선 조명에서 보면, 뚜렷한 충돌구 대신 거친 모래사장에 반쯤 파묻혀 테두리만 희미하게 남은 분화구들과 빗자루로 거칠게 쓴 듯한 독특한 지형 질감을 볼 수 있습니다."},
+            {id:68, name:"플램스티드 P", lat:-3.0, lng:-44.0, diam:112, sig:"용암 링", desc:"폭풍의 대양에 위치하며, 원래 높은 산맥을 지녔던 직경 112km의 대형 충돌구였으나 후대의 대규모 용암 폭발로 지형이 수몰되고 현재는 꼭대기 산봉우리들만 점선 고리처럼 수면 위로 남은 지형.", obs:"완벽에 가까운 둥근 고리 모양을 그리는 불연속적인 융기 지형을 찾고, 그 고리 내부에 가득 채워진 용암 바다가 주변 평원과 얼마나 매끄럽게 연결되는지 감상하세요."},
+            {id:69, name:"코페르니쿠스 2차", lat:19.6, lng:-19.1, diam:4, sig:"파편 낙하", desc:"코페르니쿠스에 떨어진 거대 운석의 폭발 충격으로 인해 뜯겨 나간 거대한 바위 파편들이 수백 km를 날아가 다시 표면에 무더기로 융단폭격하듯 떨어지며 만든 수많은 소형 2차 충돌구 구덩이들입니다.", obs:"코페르니쿠스 북쪽 피테아스 크레이터 근처로 뻗어가는 눈부신 백색 광조의 선을 따라가면서, 그 선 주변에 흩어져 있는 지름 2~4km의 자잘한 구덩이 체인들을 고배율로 짚어가세요."},
+            {id:70, name:"훔볼트 분지", lat:57.0, lng:80.0, diam:650, sig:"가장자리 바다", desc:"달 북동쪽 가장자리 끝부분 지평선 너머로 아슬아슬하게 걸쳐 있는 직경 650km의 거대 다중 고리 형태의 충돌 분지로, 중심부 일부에만 어두운 현무암 용암이 차 있습니다.", obs:"동북쪽 칭동이 가장 우리 쪽으로 크게 기울어졌을 때, 달의 가장자리 곡선을 따라 평행하게 놓인 어두운 바다 무늬와 층층이 쌓인 산맥 고리 일부를 간신히 포착해낼 수 있습니다."},
+            {id:71, name:"술피키우스 갈루스", lat:19.6, lng:11.6, diam:12, sig:"화산재", desc:"맑음의 바다 남서쪽 가장자리에 위치하며, 수십억 년 전 화산성 가스가 폭발적으로 분출할 때 함께 뿜어져 나온 오렌지색 및 검은색 유리질 화산재가 지표면에 두껍게 퇴적된 구역입니다.", obs:"주변의 일반 현무암질 바다 평면보다 알베도가 눈에 띄게 더 낮아 유난히 검은색을 띠는 길쭉한 얼룩 패치(Dark Mantle Deposit) 지역을 고배율을 통해 찾아보세요."},
+            {id:72, name:"아틀라스 암점", lat:46.7, lng:44.4, diam:87, sig:"바닥 화산구", desc:"북동쪽 고지대의 아틀라스 크레이터 내부 바닥 북쪽과 남쪽 양 끝단에 잉크를 떨어뜨린 것처럼 자리 잡은 두 개의 짙은 화쇄류 분출 흔적(Dark Halo Crater)입니다.", obs:"바닥에 자리한 뚜렷한 검은 반점 두 개를 소형 망원경으로 찾은 다음 구경을 높여 반점 중앙 정중앙에 화산 활동으로 뚫린 2~3km 직경의 벤트(Vents) 구멍을 분해하는 데 도전해보세요."},
+            {id:73, name:"스미스의 바다", lat:-2.0, lng:87.0, diam:740, sig:"동쪽 경계", desc:"지구에서 정면으로 보이는 달 원반의 한계를 살짝 넘어 동쪽 적도 가장자리 뒷면에 존재하는 지름 370km 규모의 원형 용암 바다 분지입니다.", obs:"서쪽으로 달이 흔들려 동쪽 끝이 가장 잘 보일 때(칭동 최대), 우측 지평선 가장자리에 거대한 어두운 얼룩 덩어리가 아슬아슬하게 살짝 넘어오는 모습을 관측할 수 있습니다."},
+            {id:74, name:"코페르니쿠스 H", lat:6.9, lng:-18.3, diam:5, sig:"암색 후광", desc:"코페르니쿠스 충돌구 남동쪽에 있는 지름 5km의 아주 작은 충돌구. 일반적인 크레이터는 하얀 광조를 뿜지만, 이 구덩이는 얕은 지각 밑의 검은 용암층을 뚫고 폭발해 검은 물질을 뿜어냈습니다.", obs:"눈부신 코페르니쿠스의 흰색 광조를 따라 내려오다 보면, 마치 하얀 도화지 위에 검은 잉크 방울이 번진 것처럼 동그랗게 짙은 후광을 두르고 있는 작고 검은 구멍을 발견할 수 있습니다."},
+            {id:75, name:"프톨레마이오스 B", lat:-8.0, lng:-0.8, diam:16, sig:"유령 크레이터", desc:"프톨레마이오스라는 거대 크레이터의 내부에 위치하나, 과거에 두꺼운 용암과 분출물이 바닥을 덮어버리면서 크레이터 테두리의 능선만이 얕은 접시 형태로 간신히 살아남은 '유령' 지형.", obs:"고도가 극히 낮은 사선광(월령 7일 전후)에서 얕고 둥근 테두리가 만드는 미세한 음영을 잡아내야만 매끄러운 평원 위에 숨겨진 직경 16km의 희미한 링 윤곽을 포착할 수 있습니다."},
+            {id:76, name:"W. 본드", lat:65.3, lng:3.7, diam:158, sig:"거대 사각형", desc:"달 북극 근처의 추위의 바다 북쪽에 있는 직경 158km의 거대한 고대 구조물. 인접한 거대 충돌 분출물들의 폭격으로 벽이 심하게 허물어지면서 마치 다이아몬드나 불규칙한 사각형 모양을 하게 되었습니다.", obs:"동그란 일반 크레이터들과 달리 매우 평평하고 거대한 바닥을 지녔으며, 직각에 가깝게 각이 진 독특한 비정형 직사각형 윤곽과 모서리를 북극의 낮은 빛 속에서 찾아보세요."},
+            {id:77, name:"시르살리스 릴", lat:-15.7, lng:-61.7, diam:425, sig:"최장 선형 릴", desc:"달 서쪽 가장자리를 따라 폭풍의 대양 경계와 평행하게 무려 400km 이상을 끊김 없이 시원하게 가로지르는 달에서 가장 길고 거대한 지각 균열(단층선) 중 하나입니다.", obs:"지구대 주변에 놓인 거친 산맥과 심지어 다른 크레이터들의 테두리와 바닥까지 가차 없이 관통하고 찢으며 일직선으로 뻗어 나가는 거대하고 뚜렷한 칼자국을 100배 이상의 배율로 훑어보세요."},
+            {id:78, name:"람베르트 R", lat:23.8, lng:-20.6, diam:54, sig:"용암 링", desc:"비의 바다 중앙에 있는 람베르트 크레이터 바로 남쪽에, 수km 두께의 현무암 바다 아래 완전히 파묻혀 과거 산봉우리 꼭대기 부분만 수면 위로 점선처럼 드러난 고대의 유령 링입니다.", obs:"보름달에는 전혀 보이지 않습니다. 일출이나 일몰 시 태양 고도가 아주 낮을 때만 점선처럼 희미하게 이어지는 원형의 미세한 돌출부 음영을 찾아야 하는 관측 난이도가 높은 대상입니다."},
+            {id:79, name:"더위의 만", lat:12.0, lng:-3.5, diam:90, sig:"검은 맨틀", desc:"비의 바다 남쪽 아펜니노 산맥 기슭에 인접한 만으로, 달 내부에서 뿜어져 나온 화산재(검은 멘틀 물질)가 넓은 구역을 두껍게 뒤덮고 있어 주변의 다른 바다들보다 훨씬 짙은 어둠을 띱니다.", obs:"달이 밝아질수록 주변 바다와의 뚜렷한 알베도(반사율) 차이가 더욱 극명해집니다. 밝은 아펜니노 산맥 바로 아래 검은 숯가루가 광범위하게 넓게 뿌려진 듯한 지역을 맨눈이나 쌍안경으로 보세요."},
+            {id:80, name:"동방의 바다", lat:-19.0, lng:-95.0, diam:930, sig:"다중 고리", desc:"달 형성 역사에서 가장 마지막에 형성되어 용암에 파묻히지 않고 3중의 완벽한 둥근 산맥 고리(코르디예라, 루크)를 고스란히 보존하고 있는 태양계 으뜸의 거대 충돌 분지 타겟 모델.", obs:"달 서쪽 가장자리 뒤로 90도 이상 넘어가 있어 평소엔 볼 수 없습니다. 서쪽 칭동이 극에 달해 가장자리 너머를 볼 수 있을 때 거대한 평행 산맥 고리들의 외곽 곡선을 아주 살짝 엿볼 수 있습니다."},
+            {id:81, name:"헤시오두스 A", lat:-30.1, lng:-17.0, diam:15, sig:"이중 동심원", desc:"구름의 바다 남쪽 기슭에 위치하며, 크레이터 바닥 정중앙에 마치 양궁 과녁처럼 완벽한 원형의 테두리(두 번째 고리)가 하나 더 존재하는 매우 희귀하고 특이한 이중 동심원 크레이터.", obs:"지름 15km의 본체 안에 있는 더 작은 동심원 링을 분해해 내려면 대기 안정도가 매우 뛰어나야 합니다. 200배 이상의 고배율 렌즈로 중앙의 정밀한 이중 링 구조를 조준해보세요."},
+            {id:82, name:"린네 (Linné)", lat:27.7, lng:11.8, diam:2.4, sig:"밝은 점", desc:"맑음의 바다 중앙에 있는 직경 2.4km의 아주 작은 분화구지만, 1860년대에 관측자들의 시상 착오로 인해 분화구가 흰 구름으로 변했다며 달이 살아있다는 논란의 중심이 되었던 역사적 지형.", obs:"평소엔 보름달에 가까울 때 맑음의 바다의 광활한 어두운 평원 위에서 홀로 유난히 쨍하게 눈부신 흰색의 작은 점 패치로 빛나는 것을 중간 배율로 쉽게 찾을 수 있습니다."},
+            {id:83, name:"플라톤 소구덩이", lat:51.6, lng:-9.4, diam:101, sig:"분해능 테스트", desc:"북쪽의 플라톤 크레이터 안에 현무암으로 평평하게 채워진 아주 검은 바닥 위에 놓인 지름 1~2.5km 내외의 매우 작은 4~5개의 소구덩이들. 아마추어 천문학자들의 장비 한계 분해능 테스트 대상입니다.", obs:"지름 200mm 이상의 대구경 망원경으로 기류가 멈춘 최상의 날씨(Seeing)에서, 검은 평원 위에 놓인 4~5개의 바늘구멍 같은 구덩이들을 몇 개나 구별해 낼 수 있는지 챌린지 해보세요."},
+            {id:84, name:"피타투스", lat:-29.8, lng:-13.5, diam:97, sig:"동심원 균열", desc:"구름의 바다 남쪽 경계에 있는 대형 크레이터. 지반 아래 마그마의 압력으로 바닥의 중심이 돔처럼 불룩하게 융기하면서, 늘어나는 힘을 버티지 못한 바닥 가장자리를 따라 둥글게 원형 균열(릴)이 파였습니다.", obs:"가운데가 부풀어 오르면서 내부 바닥과 바깥 테두리 산맥이 만나는 경계를 따라 깊고 미세하게 갈라져 있는 원형 틈새선을 그림자의 각도를 활용해 150배 이상의 배율로 세밀하게 관찰하세요."},
+            {id:85, name:"랑그레누스 광조", lat:-8.9, lng:60.9, diam:132, sig:"노화된 광조", desc:"풍요의 바다 동쪽에 있는 지름 132km의 웅장한 충돌구. 이 크레이터가 만든 방사형 광조는 우주방사선에 노출되어 풍화(Space Weathering)되며 원래의 밝기를 점차 잃어버리고 흐릿하게 늙어가고 있습니다.", obs:"보름달 근처에서 가장 뚜렷하게 관측되며, 바로 남쪽이나 티코 크레이터가 발산하는 눈이 시리게 밝고 선명한 젊은 광조들과 비교하여 상대적으로 희미하고 퍼진 듯한 지형의 노화를 느껴보세요."},
+            {id:86, name:"프린츠 릴", lat:27.0, lng:-43.0, diam:46, sig:"복잡한 릴", desc:"절반이 폭풍의 대양 용암에 파묻힌 프린츠 크레이터 북쪽 고원 지대에 핏줄이나 거미줄처럼 복잡하고 불규칙하게 얽히고설켜 뻗어 나가는 대규모 화산성 릴 네트워크 구역입니다.", obs:"바로 옆에 있는 거대한 슈뢰터 계곡의 웅장함과 대조적으로, 더 가늘고 날카롭고 이리저리 불규칙하게 뻗어 나가는 섬세한 릴들의 발원지와 흐름을 200배 고배율로 끈기 있게 추적해보세요."},
+            {id:87, name:"훔볼트", lat:-27.0, lng:80.9, diam:207, sig:"균열된 중앙", desc:"달 남동쪽 끝 가장자리에 있는 지름 200km 이상의 거대 분화구. 독특한 거대 중앙 봉우리 구조와 심하게 융기하고 방사형으로 거북이 등껍질처럼 갈라진 바닥 구조를 지녔습니다.", obs:"평소엔 가장자리에 가려 거의 보이지 않습니다. 동남쪽 칭동이 크게 우리 쪽으로 기울어질 때 지평선 너머로 나타나며, 험준한 바닥 융기와 이를 가로지르는 뚜렷한 방사형 릴을 확인하세요."},
+            {id:88, name:"피어리 (Peary)", lat:88.6, lng:33.0, diam:74, sig:"영구 음영", desc:"북위 88.6도의 달 북극점 바로 옆에 치우쳐 있어, 태양빛이 거의 평행하게 얕은 각도로만 스쳐 지나가는 극한의 극지 지형. 크레이터 바닥에는 수십억 년간 햇빛이 닿지 않은 영구 음영 지역이 있습니다.", obs:"북쪽 가장자리의 극한 끝부분을 조준하세요. 크레이터의 둥근 형태는 보이지 않으며, 햇빛을 받아 반짝이는 가장자리 산봉우리들의 파편적인 윤곽 실루엣만을 어둠 속에서 감상할 수 있습니다."},
+            {id:89, name:"발렌타인 돔", lat:30.5, lng:10.1, diam:30, sig:"하트 화산", desc:"맑음의 바다 서쪽 끄트머리에 위치하며, 용암 평원 위에 높이 겨우 120m, 폭 30km로 아주 완만하게 넓게 퍼져 융기한 쉴드 화산 돔입니다. 형태가 하트(또는 V자)를 닮아 낭만적인 이름이 붙었습니다.", obs:"경사가 극도로 완만해 태양 고도가 조금만 높아져도 완전히 평면처럼 보입니다. 일출 직후 터미네이터(명암경계선)가 이 지역을 스쳐 지나가는 단 몇 시간 동안만 부드러운 하트 모양의 그림자가 살짝 드러납니다."},
+            {id:90, name:"아폴로 11호", lat:1.3, lng:23.7, diam:3, sig:"소형 크레이터", desc:"고요의 바다의 인류 최초 착륙지 '고요의 기지' 바로 남동쪽 수십 km 인근에 나란히 놓여 있는 지름 3~5km 급의 아주 작은 분화구 세 개. 각각 닐 암스트롱, 버즈 올드린, 마이클 콜린스의 이름이 헌정되었습니다.", obs:"사빈(Sabine)과 리터(Ritter) 크레이터 쌍을 이정표 삼아 동쪽으로 이동한 후, 150배~200배 이상의 고배율과 완벽한 시상을 바탕으로 밝고 평평한 평원 위 작은 점 세 개를 탐색하는 챌린지를 해보세요."},
+            {id:91, name:"데 가스파리스 릴", lat:-25.9, lng:-50.7, diam:30, sig:"교차 릴", desc:"습기의 바다 서쪽에 위치한 지름 30km의 분화구. 서로 다른 시기와 방향에서 온 여러 가닥의 거대한 선형 단층(릴)들이 크레이터 내부와 주변을 X자, 십자 모양으로 무자비하고 복잡하게 교차하며 관통하는 단층대.", obs:"마치 야수가 날카로운 발톱으로 지면을 여러 번 교차하며 할퀴고 지나간 것처럼 거칠고 깊은 선들이 크레이터 바닥과 테두리를 조각내며 십자형으로 지나가는 모습을 고배율로 분해해보세요."},
+            {id:92, name:"길덴 계곡", lat:-5.1, lng:0.7, diam:47, sig:"거대 파편 흔적", desc:"직경 약 1100km의 비의 바다(Imbrium) 분지를 일격에 파낸 거대 충돌 시, 공중으로 튀어오른 산만한 암석 파편들이 남동쪽으로 날아가다 표면에 부딪혀 긁고 파내며 만든 넓고 거친 빗살무늬 골짜기.", obs:"프톨레마이오스 위쪽 중심부 지형들을 관찰할 때, 크레이터의 테두리와 지면들이 북서쪽에서 남동쪽을 향해 일제히 한 방향으로 깎이고 뭉개져 있는 강력한 선형 상흔(Sculpture)의 흐름을 관찰하세요."},
+            {id:93, name:"디오니시우스 광조", lat:2.8, lng:17.3, diam:18, sig:"검은 광조", desc:"고요의 바다 서쪽 가장자리의 직경 18km 크레이터. 대부분의 크레이터 충돌 시 지면 아래의 밝은 암석을 파내 흰색 광조를 뿜는 것과 달리, 이곳은 화산 기원의 어두운 현무암 물질층을 파내어 특이하게 검은 파편을 뿜어낸 광조 체계를 가졌습니다.", obs:"보름달 근처 달이 가장 밝을 때, 하얀 고지대를 배경으로 크레이터의 동쪽과 서쪽 양옆으로 먹물을 엎지르거나 검은 잉크가 길게 뻗어 나간 듯한 토끼 귀 모양의 어두운 띠를 찾아 대조를 느껴보세요."},
+            {id:94, name:"드리가스키", lat:-79.3, lng:-84.9, diam:162, sig:"남극 가장자리", desc:"달 남극점 근처 서쪽 지평선 끝자락에 위치한 직경 162km의 거대하고 장엄한 고대 다중 고리 크레이터입니다. 남극-에이킨 분지 외곽의 높은 산맥 지형의 일부를 구성하며 내부엔 작은 충돌구들이 겹쳐 있습니다.", obs:"정면에서 볼 수 없고 강한 남쪽 및 서쪽 칭동이 일어나는 특정 시기에만 지평선 위로 돌출되어 보입니다. 가장자리 끝에서 거대한 산봉우리들이 우뚝 솟아 요철을 이루는 장엄한 실루엣(Profile)으로 관찰할 수 있습니다."},
+            {id:95, name:"폭풍의 대양", lat:23.0, lng:-15.0, diam:3200, sig:"최대 바다", desc:"지름이 무려 3,000km를 넘어 달 앞면 서쪽 표면의 거의 3분의 1을 덮고 있는, 단일 분지가 아니라 여러 번의 균열과 거대한 용암 분출이 합쳐져 만들어진 달에서 가장 넓고 광활한 어두운 화산암 평원.", obs:"굳이 망원경을 쓰지 않고 맨눈이나 저배율의 소형 쌍안경만으로도 달 앞면 왼쪽을 까맣게 덮어버린 거대한 화산 바다의 압도적 크기와 불규칙한 가장자리 윤곽을 한눈에 담아 그 위용을 체감하세요.", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/e/ee/Oceanus_Procellarum_%28LRO%29.png/800px-Oceanus_Procellarum_%28LRO%29.png"},
+            {id:96, name:"라이프니츠 산맥", lat:-85.0, lng:30.0, diam:300, sig:"최고도 산맥", desc:"달 뒷면 대부분을 차지하는 지름 2,500km의 태양계 최대 규모 크레이터인 '남극-에이킨 분지(South Pole-Aitken basin)'의 바깥쪽 테두리 산맥으로, 그 높이가 수 km에 달하여 달 앞면에서도 산맥 끝자락이 보일 정도의 달 최고 고도 지역입니다.", obs:"가장자리에 숨어 있어 칭동이 우호적인 시기를 기다려야 합니다. 남극 부근의 지평선 가장자리를 고배율로 따라가다 보면, 완만한 곡선이 아니라 톱니바퀴나 톱날처럼 삐죽삐죽하게 돌출된 산맥의 웅장한 실루엣 단면을 볼 수 있습니다.", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/South_Pole-Aitken_basin.jpg/800px-South_Pole-Aitken_basin.jpg"},
+            {id:97, name:"인기라미 계곡", lat:-44.0, lng:-73.0, diam:140, sig:"쓸린 계곡", desc:"달 형성 역사상 가장 마지막에 터진 거대 충돌인 '동방의 바다(Orientale)' 생성 시 뿜어져 나온 수억 톤의 용융 파편들이 남서쪽으로 어마어마한 속도로 날아가며 폭 10km 단위로 거대한 빗자루처럼 지면을 쓸고 파낸 방사형 계곡(Ejecta).", obs:"시크르드 크레이터 서쪽 가장자리에서부터 시작해 크레이터의 형태를 무시하고 가로지르며 남서쪽을 향해 일제히 표면을 굵직하게 파놓은 매우 강력하고 일관된 선형 계곡들의 무리들을 집중 관찰하세요."},
+            {id:98, name:"비의 바다 용암층", lat:32.8, lng:-22.0, diam:200, sig:"용암 경계면", desc:"비의 바다가 거대한 용암으로 채워질 때, 서로 다른 시기와 각기 다른 티타늄 성분을 지닌 여러 번의 대규모 용암 쓰나미가 겹겹이 흘러나오다 굳으면서 형성된 약 10~30m 높이의 미세한 지형적 단층 경계선 띠.", obs:"태양 고도가 아주 낮은 사선광일 때 바다 중앙 평원을 200배 이상의 고배율로 살펴보면, 마치 바닷물이 해변으로 밀려오다 얼어붙은 것처럼 층층이 겹쳐 쌓인 물결 모양의 용암 단차 실루엣을 기적처럼 잡아낼 수 있습니다."},
+            {id:99, name:"이나 (Ina)", lat:18.6, lng:5.3, diam:3, sig:"가스 배출구", desc:"아펜니노 산맥 근처 고요의 바다 중앙에 있는 지름 3km, 깊이 30m의 D자형 함몰 지형. 대부분의 화산 활동이 30억 년 전 끝난 달에서, 불과 수천만 년 전이나 비교적 최근까지 화산성 가스가 배출된 흔적으로 추정되는 미스터리한 최신 지질 구조.", obs:"크기가 극도로 작아 아마추어 망원경 구경으로는 그 독특한 물방울이나 뇌 표면 같은 거품 모양을 분해해 식별하기는 불가능에 가깝습니다. 다만 주변 분화구를 통해 그 정확한 위치를 찾아 조준해보는 챌린지에 의의를 둡니다."},
+            {id:100, name:"경계의 바다 소용돌이", lat:18.5, lng:88.0, diam:100, sig:"자기장 무늬", desc:"달 뒷면에 있는 경계의 바다(Mare Marginis)가 달의 앞면 동쪽 지평선 너머로 살짝 삐져나온 곳에 위치. 태양풍의 이온 입자를 튕겨내는 강력한 국지적 자기장 우산 덕분에 수십억 년간 우주 풍화를 피하여 하얗고 밝은 원래의 달 모래 색깔을 기묘한 소용돌이 무늬로 유지하고 있는 지형.", obs:"달 동쪽 끝자락 지평선 부근에 위치하여 칭동이 동쪽으로 크게 기울어졌을 때만 관측 가능합니다. 어두운 바다 평원 위로 뜬구름이나 물감처럼 희미하고 불규칙하게 흩뿌려진 밝은 하얀색의 얼룩 반점들을 찾아보는 달 관측 최고의 난이도 목표입니다."}
+        ];
+
+        // --- 2. 로컬 스토리지 & UI 동기화 ---
+        let observedData = JSON.parse(localStorage.getItem('lunarObserved_v4')) || {};
+        let currentItem = null;
+
+        function saveObservation() {
+            localStorage.setItem('lunarObserved_v4', JSON.stringify(observedData));
+            updateProgress();
+        }
+
+        function updateProgress() {
+            const count = Object.values(observedData).filter(v => v === true).length;
+            document.getElementById('progressText').innerText = `${count} / 100 달성`;
+            document.getElementById('progressBar').style.width = `${count}%`;
+        }
+
+        function toggleObservation(id, event) {
+            if(event) event.stopPropagation(); 
+            observedData[id] = !observedData[id];
+            saveObservation();
+            
+            const btn = document.getElementById(`check-${id}`);
+            const card = document.getElementById(`card-${id}`);
+            if (observedData[id]) {
+                btn.classList.add('checked');
+                btn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>';
+                card.classList.add('observed');
+            } else {
+                btn.classList.remove('checked');
+                btn.innerHTML = '';
+                card.classList.remove('observed');
+            }
+
+            if (currentItem && currentItem.id === id) syncInfoPanelCheck();
+        }
+
+        function toggleObservationFromInfo() {
+            if (currentItem) toggleObservation(currentItem.id);
+        }
+
+        function syncInfoPanelCheck() {
+            const infoBtn = document.getElementById('infoCheckBtn');
+            if (observedData[currentItem.id]) {
+                infoBtn.classList.add('checked');
+                infoBtn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>';
+            } else {
+                infoBtn.classList.remove('checked');
+                infoBtn.innerHTML = '';
+            }
+        }
+
+        // --- 3. 메인 지도 및 미니맵 초기화 ---
+        const L_SCALE = 40075017 / 10917000;
+        
+        // 메인 지도
+        const map = L.map('map', { center: [0, 0], zoom: 3, minZoom: 2, maxZoom: 7, attributionControl: false });
+        L.tileLayer('https://cartocdn-gusc.global.ssl.fastly.net/opmbuilder/api/v1/map/named/opm-moon-basemap-v0-1/all/{z}/{x}/{y}.png', { maxZoom: 7 }).addTo(map);
+
+        // 상세정보창 상단의 잘라낸 지도(미니맵)
+        const miniMap = L.map('miniMap', { 
+            zoomControl: false, dragging: false, touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false, attributionControl: false 
+        });
+        L.tileLayer('https://cartocdn-gusc.global.ssl.fastly.net/opmbuilder/api/v1/map/named/opm-moon-basemap-v0-1/all/{z}/{x}/{y}.png', { maxZoom: 7 }).addTo(miniMap);
+        
+        const markers = {};
+        let activeHighlight = null;
+
+        function initApp() {
+            const listContainer = document.getElementById('lunarList');
+            listContainer.innerHTML = ''; 
+
+            lunar100Data.forEach(item => {
+                // 커스텀 L1~L100 마커 생성
+                const iconHtml = `<div class="${observedData[item.id] ? 'observed' : ''}">L${item.id}</div>`;
+                const customIcon = L.divIcon({
+                    className: 'custom-lunar-marker',
+                    html: iconHtml,
+                    iconSize: [0, 0] // 중앙 정렬
+                });
+
+                const m = L.marker([item.lat, item.lng], { icon: customIcon }).addTo(map);
+                
+                // 마우스 오버 시 표시할 일반 툴팁
+                m.bindTooltip(`<b>${item.name.split('(')[0]}</b>`, { 
+                    direction: 'top', offset: [0, -15], className: 'hover-tooltip'
+                });
+                
+                m.on('click', () => focusItem(item));
+                markers[item.id] = m;
+
+                // 하단 리스트 카드 생성
+                const isObserved = observedData[item.id];
+                const card = document.createElement('div');
+                card.className = `list-item ${isObserved ? 'observed' : ''}`;
+                card.id = `card-${item.id}`;
+                card.onclick = () => focusItem(item);
+                
+                card.innerHTML = `
+                    <div id="check-${item.id}" class="check-btn ${isObserved ? 'checked' : ''}" onclick="toggleObservation(${item.id}, event)">
+                        ${isObserved ? '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>' : ''}
+                    </div>
+                    <div class="flex-grow min-w-0 pr-2">
+                        <div class="flex items-center gap-1.5 mb-0.5">
+                            <span class="badge">L${item.id}</span>
+                            <h3 class="text-[13.5px] font-bold text-slate-800 truncate">${item.name}</h3>
+                        </div>
+                        <p class="text-[11px] text-slate-500 truncate">${item.sig}</p>
+                    </div>
+                `;
+                listContainer.appendChild(card);
+            });
+            updateProgress();
+        }
+
+        // --- 4. 화면 전환 로직 (리스트 -> 상세화면) ---
+        function focusItem(item) {
+            currentItem = item;
+            
+            // 기존 메인 지도 하이라이트 복구
+            if (activeHighlight) {
+                map.removeLayer(activeHighlight);
+                activeHighlight = null;
+            }
+            // 모든 툴팁 일시 중단 및 원래 툴팁 복원 준비
+            Object.values(markers).forEach(m => {
+                m.setOpacity(0.6);
+                m.unbindTooltip(); 
+                const id = Object.keys(markers).find(key => markers[key] === m);
+                if(id) {
+                    const originalName = lunar100Data.find(d => d.id == id).name.split('(')[0];
+                    m.bindTooltip(`<b>${originalName}</b>`, { direction: 'top', offset: [0, -15], className: 'hover-tooltip' });
+                }
+            });
+            
+            // 선택된 마커 숨김 처리
+            if (markers[item.id]) {
+                markers[item.id].setOpacity(0);
+                markers[item.id].unbindTooltip(); // 숨긴 마커의 호버 툴팁 비활성화
+            }
+
+            // 지도 줌 이동 (L1~L3은 달 전체를 보도록 줌아웃)
+            let z = 5;
+            if (item.diam > 600 || item.id <= 3) z = 3;
+            else if (item.diam < 35 && item.diam > 0) z = 7;
+            
+            map.flyTo([item.lat, item.lng], z, { duration: 1.2 });
+
+            // 메인 지도에 파란색 하이라이트 원과 이름 라벨 영구 표시
+            if (item.diam > 0 || item.id > 3) {
+                const radius = (item.diam / 2) * 1000 * L_SCALE * 1.35;
+                // 최소 반경 조정
+                activeHighlight = L.circle([item.lat, item.lng], {
+                    color: '#3b82f6', weight: 3, fillOpacity: 0.15, radius: Math.max(radius, 40000)
+                }).addTo(map);
+
+                // 원 아래에 이름 표시 라벨 툴팁 부착 (영구 오픈)
+                activeHighlight.bindTooltip(item.name.split('(')[0], {
+                    permanent: true,
+                    direction: 'bottom',
+                    className: 'bottom-name-label'
+                }).openTooltip();
+            }
+
+            // --- 상세 뷰 데이터 입력 ---
+            document.getElementById('infoBadge').innerText = `L${item.id}`;
+            document.getElementById('infoTitle').innerText = item.name;
+            document.getElementById('infoSig').innerText = item.sig;
+            document.getElementById('infoDesc').innerText = item.desc;
+            document.getElementById('infoObs').innerText = item.obs;
+            document.getElementById('infoCoords').innerText = item.id <= 3 ? "광범위/전체" : `${item.lat.toFixed(1)}°, ${item.lng.toFixed(1)}°`;
+            document.getElementById('infoDiam').innerText = item.diam || "전체";
+            
+            // --- 미니맵 렌더링 (빨간색 원 완전 제거) ---
+            const infoImg = document.getElementById('infoImg');
+            const miniMapDiv = document.getElementById('miniMap');
+            
+            if (item.img) {
+                miniMapDiv.style.display = 'none';
+                infoImg.style.display = 'block';
+                infoImg.src = item.img;
+            } else {
+                infoImg.style.display = 'none';
+                miniMapDiv.style.display = 'block';
+                
+                let miniZ = 6;
+                if(item.diam > 300) miniZ = 4;
+                else if(item.diam > 100) miniZ = 5;
+                else if(item.diam < 30) miniZ = 7;
+
+                if(item.id <= 3) {
+                    miniMap.setView([0, 0], 2);
+                } else {
+                    miniMap.setView([item.lat, item.lng], miniZ);
+                }
+            }
+            
+            syncInfoPanelCheck();
+            
+            // 상세 뷰 화면 슬라이드
+            document.getElementById('detail-view').classList.add('active');
+            setTimeout(() => { miniMap.invalidateSize(); }, 350); 
+        }
+
+        // 목록으로 되돌아가기
+        function backToList() {
+            document.getElementById('detail-view').classList.remove('active');
+            currentItem = null;
+            if (activeHighlight) {
+                map.removeLayer(activeHighlight);
+                activeHighlight = null;
+            }
+            
+            Object.values(markers).forEach(m => {
+                m.setOpacity(1);
+                m.unbindTooltip();
+                // 모든 마커의 툴팁 원래대로 복구
+                const id = Object.keys(markers).find(key => markers[key] === m);
+                if(id) {
+                    const originalName = lunar100Data.find(d => d.id == id).name.split('(')[0];
+                    m.bindTooltip(`<b>${originalName}</b>`, { direction: 'top', offset: [0, -15], className: 'hover-tooltip' });
+                }
+            });
+            
+            map.flyTo([0, 0], 3, { duration: 1.2 });
+        }
+
+        // 검색 기능
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase().replace(/\s/g, '');
+            const cards = document.querySelectorAll('.list-item');
+            cards.forEach(card => {
+                const text = card.textContent.toLowerCase().replace(/\s/g, '');
+                card.style.display = text.includes(term) ? 'flex' : 'none';
+            });
+        });
+
+        map.on('mousemove', e => {
+            document.getElementById('coordDisplay').innerText = `위도: ${e.latlng.lat.toFixed(4)}, 경도: ${e.latlng.lng.toFixed(4)}`;
+        });
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
