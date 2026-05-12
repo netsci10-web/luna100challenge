@@ -63,10 +63,9 @@
             transition: all 0.2s;
             margin-left: -13px; margin-top: -13px; 
         }
-        /* 관찰 완료 시 녹색 바탕으로 변경 (선택자 수정) */
-        .custom-lunar-marker div.observed {
-            background-color: #22c55e !important; /* 뚜렷한 녹색 바탕 */
-            border-color: #ffffff !important; /* 흰색 테두리 유지 */
+        .custom-lunar-marker.observed div {
+            background-color: #22c55e !important; 
+            border-color: #ffffff !important; 
             color: #ffffff !important; 
         }
         .custom-lunar-marker.active-marker div {
@@ -191,6 +190,10 @@
             padding: 20px;
         }
 
+        /* 콘텐츠 페이드인 애니메이션 (항목 전환 시 부드럽게) */
+        .fade-in { animation: fadeIn 0.4s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
         /* 미니맵/사진 영역 (순수 사진 형태 유지) */
         .detail-media-container {
             width: 100%; height: 220px; 
@@ -268,7 +271,7 @@
                     </div>
 
                     <!-- 내용 본문 -->
-                    <div class="detail-body">
+                    <div class="detail-body" id="detailBodyContent">
                         <div id="infoMoonAge" class="moon-age-badge hidden">
                             <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
                             <span>관측 월령: <span id="infoMoonAgeText"></span></span>
@@ -307,8 +310,8 @@
     <script>
         const lunar100Data = [
             {id:1, name:"달 (Moon)", sig:"지구의 위성", lat:4, lng:-4, diam:0, desc:"우리의 영원한 동반자. 달 표면의 어두운 바다와 밝은 고지대가 이루는 무늬는 맨눈으로도 선명하게 확인할 수 있습니다.", obs:"[추천 관측 월령: 전 월령]\n맨눈으로 토끼 무늬를 상상해보거나, 7x50 쌍안경을 통해 달 표면에 무수히 흩어진 충돌구들을 감상해보세요.", img:"https://upload.wikimedia.org/wikipedia/commons/e/e1/FullMoon2010.jpg"},
-            {id:2, name:"지구광 (Earthshine)", sig:"지구 반사광", lat:-4, lng:4, diam:0, desc:"지구의 바다와 구름에서 반사된 태양빛이 다시 달의 어두운 그림자 부분을 비추는 환상적인 현상입니다.", obs:"[추천 관측 월령: 2~4일경, 25~28일경]\n초승달이나 그믐달 시기에 달의 어두운 면이 신비로운 푸른 빛을 띠는 것을 쌍안경으로 관찰할 수 있습니다.", img:"https://upload.wikimedia.org/wikipedia/commons/e/e1/FullMoon2010.jpg"},
-            {id:3, name:"바다/고지대 이분법", sig:"조성 차이", lat:4, lng:4, diam:0, desc:"앞면은 주로 현무암질 '바다'로 덮여 있는 반면, 뒷면과 고지대는 밝은 사장암으로 이루어져 극명한 대비를 보여줍니다.", obs:"[추천 관측 월령: 10~15일경]\n저배율 망원경으로 밝고 거친 고지대와 매끄럽고 어두운 바다 지형의 경계를 따라 훑으며 관찰하세요.", img:"https://upload.wikimedia.org/wikipedia/commons/e/e1/FullMoon2010.jpg"},
+            {id:2, name:"지구광 (Earthshine)", sig:"지구 반사광", lat:-4, lng:4, diam:0, desc:"지구의 바다와 구름에서 반사된 태양빛이 다시 달의 어두운 그림자 부분을 비추는 환상적인 현상입니다.", obs:"[추천 관측 월령: 2~4일경, 25~28일경]\n초승달이나 그믐달 시기에 달의 어두운 면이 신비로운 푸른 빛을 띠는 것을 쌍안경으로 관찰할 수 있습니다.", img:"https://upload.wikimedia.org/wikipedia/commons/4/42/Aschgraues.Mondlicht.P1162513.jpg"},
+            {id:3, name:"바다/고지대 이분법", sig:"조성 차이", lat:4, lng:4, diam:0, desc:"앞면은 주로 현무암질 '바다'로 덮여 있는 반면, 뒷면과 고지대는 밝은 사장암으로 이루어져 극명한 대비를 보여줍니다.", obs:"[추천 관측 월령: 10~15일경]\n저배율 망원경으로 밝고 거친 고지대와 매끄럽고 어두운 바다 지형의 경계를 따라 훑으며 관찰하세요.", img:"https://upload.wikimedia.org/wikipedia/commons/d/d4/Moon_back_-_LRO_2010_10_Mosaic.jpg"},
             {id:4, name:"아펜니노 산맥", sig:"분지 테두리", lat:18.9, lng:-3.7, diam:70, desc:"비의 바다 형성 시 융기된 산맥. 최고 높이가 5,000m에 달하며 달에서 가장 웅장하고 높은 산맥입니다.", obs:"[추천 관측 월령: 7~8일경, 21~22일경]\n명암경계선이 산맥에 걸칠 때 관찰하면 험준한 봉우리들이 던지는 예리하고 긴 그림자를 볼 수 있습니다."},
             {id:5, name:"코페르니쿠스", sig:"복합 크레이터", lat:9.7, lng:-20.1, diam:93, desc:"다중 중앙 봉우리와 테라스(계단식) 구조의 안쪽 벽면이 돋보이는 '달의 군주'입니다.", obs:"[추천 관측 월령: 9~10일경]\n내부의 중앙 봉우리와 다층 계단식 벽을 고배율로 관측하세요. 보름달에는 주변의 광조를 확인할 수 있습니다."},
             {id:6, name:"티코", sig:"광조 크레이터", lat:-43.3, lng:-11.1, diam:85, desc:"약 1억 년 전 형성된 젊은 크레이터로, 달 전역으로 수천 km나 뻗어나가는 눈부신 광조 체계의 중심입니다.", obs:"[추천 관측 월령: 9일경 ~ 보름]\n달 표면을 가로지르는 광조를 저배율에서 확인하고, 중심의 날카로운 봉우리를 고배율로 탐사하세요."},
@@ -408,12 +411,12 @@
             {id:100, name:"경계의 바다 소용돌이", sig:"자기장 무늬", lat:18.5, lng:88.0, diam:100, desc:"국지적 자기장 우산 덕분에 태양풍 우주 풍화를 피하여 원래의 밝은 흙색을 기묘하게 유지한 소용돌이.", obs:"[추천 관측 월령: 동쪽 칭동 최대 시]\n지평선 부근 어두운 평원 위로 뜬구름처럼 퍼진 하얀 얼룩 반점들을 찾는 최고 난이도 관측 목표입니다."}
         ];
 
-        let observedData = JSON.parse(localStorage.getItem('lunarObserved_v9')) || {};
+        let observedData = JSON.parse(localStorage.getItem('lunarObserved_v10')) || {};
         let currentItem = null;
         let isFeatureSelected = false; 
 
         function saveObservation() {
-            localStorage.setItem('lunarObserved_v9', JSON.stringify(observedData));
+            localStorage.setItem('lunarObserved_v10', JSON.stringify(observedData));
             updateProgress();
         }
 
@@ -474,9 +477,11 @@
 
         const L_SCALE = 40075017 / 10917000;
         
-        const map = L.map('map', { center: [0, 0], zoom: 3, minZoom: 2, maxZoom: 9, attributionControl: false });
-        L.tileLayer('https://cartocdn-gusc.global.ssl.fastly.net/opmbuilder/api/v1/map/named/opm-moon-basemap-v0-1/all/{z}/{x}/{y}.png', { maxNativeZoom: 7, maxZoom: 9 }).addTo(map);
+        // 메인 맵 (줌 레벨 조정)
+        const map = L.map('map', { center: [0, 0], zoom: 3, minZoom: 2, maxZoom: 8, attributionControl: false });
+        L.tileLayer('https://cartocdn-gusc.global.ssl.fastly.net/opmbuilder/api/v1/map/named/opm-moon-basemap-v0-1/all/{z}/{x}/{y}.png', { maxNativeZoom: 7, maxZoom: 8 }).addTo(map);
 
+        // 미니맵 (순수 이미지처럼 보이기 위해 조작 차단, 깊은 줌 허용)
         const miniMap = L.map('miniMap', { 
             zoomControl: false, dragging: false, touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false, 
             boxZoom: false, keyboard: false, attributionControl: false 
@@ -534,25 +539,37 @@
         // 지형 크기에 맞게 미니맵 줌값 자동 연산
         function getOptimalZoom(diam) {
             if (!diam || diam === 0) return 3;
-            const targetPixels = 180; // 미니맵 컨테이너 220px에 꽉 차게 계산
+            const targetPixels = 180; // 미니맵 220px 높이에 지형이 180px 정도 차지하도록
             const kmPerPixelAtZoom0 = 10917 / 256; 
             const requiredZoom = Math.log2(kmPerPixelAtZoom0 * targetPixels / diam);
             let z = Math.round(requiredZoom);
             
             if (z < 3) z = 3;
-            if (z > 12) z = 12; // 작은 크레이터를 위한 깊은 줌 허용
+            if (z > 12) z = 12; // 아주 작은 크레이터를 위한 깊은 줌
             return z;
+        }
+
+        // 메인 맵 적절한 줌 연산
+        function getMainMapZoom(diam, id) {
+            if (id <= 3 || diam >= 800) return 3;
+            if (diam >= 400) return 4;
+            if (diam >= 150) return 5;
+            if (diam >= 50) return 6;
+            if (diam >= 20) return 7;
+            return 8; 
         }
 
         function focusItem(item) {
             currentItem = item;
             isFeatureSelected = true; 
             
+            // 기존 하이라이트 삭제
             if (activeHighlight) {
                 map.removeLayer(activeHighlight);
                 activeHighlight = null;
             }
             
+            // 다른 마커 원상복구
             Object.values(markers).forEach(m => {
                 m.setOpacity(0.6);
                 m.unbindTooltip(); 
@@ -563,21 +580,21 @@
                 }
             });
             
+            // 현재 선택한 마커 숨김
             if (markers[item.id]) {
                 markers[item.id].setOpacity(0);
                 markers[item.id].unbindTooltip(); 
             }
 
-            let z = 5;
-            if (item.diam > 600 || item.id <= 3) z = 3;
-            else if (item.diam < 35 && item.diam > 0) z = 7;
-            
+            // 메인 맵 지형 크기에 맞춰 줌 이동
+            let z = getMainMapZoom(item.diam, item.id);
             map.flyTo([item.lat, item.lng], z, { duration: 1.2 });
 
+            // 파란색 원과 라벨 생성
             if (item.diam > 0 || item.id > 3) {
                 const radius = (item.diam / 2) * 1000 * L_SCALE * 1.35;
                 activeHighlight = L.circle([item.lat, item.lng], {
-                    color: '#3b82f6', weight: 3, fillOpacity: 0.15, radius: Math.max(radius, 40000)
+                    color: '#3b82f6', weight: 3, fillOpacity: 0.15, radius: Math.max(radius, 30000)
                 }).addTo(map);
 
                 activeHighlight.bindTooltip(`L${item.id}. ${item.name.split('(')[0].trim()}`, {
@@ -588,6 +605,7 @@
                 }).openTooltip();
             }
 
+            // --- 텍스트 정보 입력 ---
             document.getElementById('infoBadge').innerText = `L${item.id}`;
             document.getElementById('infoTitle').innerText = item.name;
             document.getElementById('infoSig').innerText = item.sig;
@@ -610,6 +628,7 @@
             document.getElementById('coordDisplay').innerText = `선택: ${coordsText}`;
             document.getElementById('infoDiam').innerText = item.diam || "전체";
             
+            // --- 미니맵 사진 뷰어 세팅 ---
             const infoImg = document.getElementById('infoImg');
             const miniMapDiv = document.getElementById('miniMap');
             
@@ -630,7 +649,19 @@
             }
             
             syncInfoPanelCheck();
-            document.getElementById('detail-view').classList.add('active');
+            
+            // 애니메이션 및 스크롤 탑
+            const detailView = document.getElementById('detail-view');
+            detailView.classList.add('active');
+            
+            const detailBody = document.getElementById('detailBodyContent');
+            if (detailBody) {
+                detailBody.classList.remove('fade-in');
+                void detailBody.offsetWidth; // trigger reflow
+                detailBody.classList.add('fade-in');
+                detailBody.scrollTop = 0; // 항상 맨 위에서부터 읽기 시작
+            }
+            
             setTimeout(() => { miniMap.invalidateSize(); }, 350); 
         }
 
@@ -667,7 +698,7 @@
             });
         });
 
-        // 맵 중앙 좌표 업데이트 함수
+        // 맵 중앙 좌표 업데이트
         function updateCenterCoords() {
             if (!isFeatureSelected) {
                 const center = map.getCenter();
@@ -675,7 +706,7 @@
             }
         }
 
-        // 'dragstart' 사용: 마우스로 직접 맵을 옮길 때만 '중앙' 추적으로 복귀 (flyTo 등의 애니메이션은 방해하지 않음)
+        // 지도를 터치/드래그 시 '중앙' 모드로 복귀 (지도 이동 파악용)
         map.on('dragstart', () => { isFeatureSelected = false; });
         map.on('move', updateCenterCoords);
 
