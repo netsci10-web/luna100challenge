@@ -144,14 +144,15 @@
         }
         @media (min-width: 640px) and (max-width: 767px) { .lunar-grid { grid-template-columns: repeat(2, 1fr); } }
         
-        .list-item {
+        /* list-item 클래스명 충돌로 인한 점(Bullet) 버그 해결을 위해 lunar-card로 이름 변경 */
+        .lunar-card {
             cursor: pointer; border: 1px solid #e2e8f0; background: #ffffff;
             transition: all 0.2s; padding: 12px; border-radius: 12px;
             display: flex; flex-direction: column; justify-content: center; gap: 4px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
-        .list-item:active { transform: scale(0.98); }
-        .list-item.observed { background: #f0fdf4; border-color: #86efac; }
+        .lunar-card:active { transform: scale(0.98); }
+        .lunar-card.observed { background: #f0fdf4; border-color: #86efac; }
         
         .badge {
             font-size: 11px; padding: 3px 6px; border-radius: 6px;
@@ -229,15 +230,15 @@
 <body>
 
 <div id="app-container">
-    <!-- 앱 타이틀 상단 헤더 & 마커 토글 스위치 -->
-    <header class="bg-slate-900 text-slate-50 py-3 px-3 sm:px-4 flex justify-between items-center shrink-0 z-50 shadow-md relative">
-        <h1 class="text-[14px] sm:text-[17px] font-black tracking-widest uppercase flex items-center gap-1.5 sm:gap-2 truncate">
-            <span class="text-lg sm:text-xl">🌕</span> <span class="hidden sm:inline">LUNAR 100 CHALLENGE</span><span class="sm:hidden">LUNAR 100</span>
+    <!-- 앱 타이틀 상단 헤더 (모바일에서 flex-col을 통해 두 줄로 분리) -->
+    <header class="bg-slate-900 text-slate-50 py-3 px-3 sm:px-4 flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-0 shrink-0 z-50 shadow-md relative">
+        <h1 class="text-[15px] sm:text-[17px] font-black tracking-widest uppercase flex items-center justify-center w-full sm:w-auto gap-1.5 sm:gap-2">
+            <span class="text-lg sm:text-xl">🌕</span> LUNAR 100 CHALLENGE
         </h1>
-        <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <div class="flex items-center justify-center w-full sm:w-auto gap-1.5 sm:gap-2 shrink-0">
             
-            <!-- 날짜/월령 위젯 (날짜 -> 아이콘 -> 월령 -> 체크박스 순서 배치) -->
-            <label class="relative flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-extrabold text-amber-300 bg-slate-800 py-1.5 px-2.5 sm:px-3 rounded-full border border-slate-700 shadow-inner cursor-pointer hover:bg-slate-700 transition-colors" title="오늘 관측 가능한 대상만 보기">
+            <!-- 날짜/월령 위젯 -->
+            <label class="relative flex items-center justify-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-extrabold text-amber-300 bg-slate-800 py-1.5 px-2.5 sm:px-3 rounded-full border border-slate-700 shadow-inner cursor-pointer hover:bg-slate-700 transition-colors" title="오늘 관측 가능한 대상만 보기">
                 <div class="text-slate-200 pr-1.5 sm:pr-2 border-r border-slate-600 pointer-events-none whitespace-nowrap font-mono flex items-center gap-1">
                     <span id="dateStrMobile" class="sm:hidden tracking-tight"></span>
                     <span id="dateStrDesktop" class="hidden sm:inline tracking-tight"></span>
@@ -250,8 +251,8 @@
             </label>
 
             <!-- 마커 토글 스위치 -->
-            <label class="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold cursor-pointer bg-slate-800 py-1.5 px-2 sm:px-3 rounded-full hover:bg-slate-700 transition-colors border border-slate-700 shadow-inner">
-                <span class="hidden sm:inline">Luna 100</span><span class="sm:hidden">마커</span>
+            <label class="shrink-0 flex items-center gap-1.5 text-[11px] sm:text-xs font-bold cursor-pointer bg-slate-800 py-1.5 px-2 sm:px-3 rounded-full hover:bg-slate-700 transition-colors border border-slate-700 shadow-inner">
+                <span>Luna 100</span>
                 <input type="checkbox" id="markerToggle" checked class="w-3.5 h-3.5 accent-blue-500 cursor-pointer" onchange="toggleMarkerLayer(event)">
             </label>
         </div>
@@ -675,7 +676,7 @@
 
                 const isObserved = observedData[item.id];
                 const card = document.createElement('div');
-                card.className = `list-item ${isObserved ? 'observed' : ''}`;
+                card.className = `lunar-card ${isObserved ? 'observed' : ''}`; // list-item -> lunar-card로 변경
                 card.id = `card-${item.id}`;
                 card.onclick = () => focusItem(item);
                 
@@ -856,7 +857,7 @@
         function filterList() {
             const term = document.getElementById('searchInput').value.toLowerCase().replace(/\s/g, '');
             const ageFilter = document.getElementById('moonAgeFilter').value;
-            const cards = document.querySelectorAll('.list-item');
+            const cards = document.querySelectorAll('.lunar-card'); // list-item -> lunar-card로 변경
             
             cards.forEach(card => {
                 const idStr = card.id.replace('card-', '');
