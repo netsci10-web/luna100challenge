@@ -7,6 +7,8 @@
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 달 뜨고 지는 시간 계산용 라이브러리 추가 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
     <style>
         body, html {
             margin: 0; padding: 0; height: 100%; width: 100%;
@@ -244,13 +246,21 @@
         <div class="flex items-center justify-center w-full sm:w-auto gap-1.5 sm:gap-2 shrink-0">
             
             <!-- 날짜/월령 위젯 -->
-            <label class="relative flex items-center justify-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-extrabold text-amber-300 bg-slate-800 py-1.5 px-2.5 sm:px-3 rounded-full border border-slate-700 shadow-inner cursor-pointer hover:bg-slate-700 transition-colors" title="오늘 관측 가능한 대상만 보기">
+            <label class="relative flex items-center justify-center gap-1.5 sm:gap-2 text-[9.5px] sm:text-xs font-extrabold text-amber-300 bg-slate-800 py-1.5 px-2 sm:px-3 rounded-full border border-slate-700 shadow-inner cursor-pointer hover:bg-slate-700 transition-colors" title="오늘 관측 가능한 대상만 보기">
+                
+                <!-- 날짜 표시 영역 (월출/월몰 시간 앞으로 이동) -->
                 <div class="text-slate-200 pr-1.5 sm:pr-2 border-r border-slate-600 pointer-events-none whitespace-nowrap font-mono flex items-center gap-1">
                     <span id="dateStrMobile" class="sm:hidden tracking-tight"></span>
                     <span id="dateStrDesktop" class="hidden sm:inline tracking-tight"></span>
                 </div>
+
+                <!-- 월출 / 월몰 시간 표시 영역 -->
+                <div class="text-slate-300 pr-1.5 sm:pr-2 border-r border-slate-600 pointer-events-none whitespace-nowrap font-mono flex items-center gap-0.5 sm:gap-1">
+                    <span id="moonRiseSet" class="tracking-tighter flex items-center"></span>
+                </div>
+
                 <div class="flex items-center gap-1 pointer-events-none">
-                    <span id="moonIconDisplay" class="text-[12px] sm:text-[15px] leading-none drop-shadow-md"></span> 
+                    <span id="moonIconDisplay" class="text-[11px] sm:text-[15px] leading-none drop-shadow-md"></span> 
                     <span id="moonAgeDisplay" class="whitespace-nowrap"></span>
                 </div>
                 <input type="checkbox" id="todayFilterToggle" class="w-3.5 h-3.5 ml-0.5 accent-amber-500 cursor-pointer" onchange="toggleTodayFilter(event)">
@@ -609,7 +619,7 @@
             return html;
         }
 
-        // 오늘 월령 계산 (연도 포함 날짜 포맷 적용)
+        // 오늘 월령 계산 (연도 포함 날짜 포맷 적용 및 월출/월몰 계산)
         function initMoonAge() {
             const today = new Date();
             const year = today.getFullYear();
@@ -619,7 +629,26 @@
             const dayName = daysArr[today.getDay()];
             
             const dateStrDesktop = `${year}. ${month}. ${day}. (${dayName})`;
-            const dateStrMobile = `${String(year).slice(-2)}. ${month}. ${day}. (${dayName})`;
+            const dateStrMobile = `${String(year).slice(-2)}. ${month}. ${day}.`; // 모바일은 공간 확보를 위해 요일 생략
+
+            // --- 달 뜨고 지는 시간 계산 (한국 서울 좌표 기준) ---
+            const lat = 37.5665; 
+            const lng = 126.9780;
+            let riseStr = '--:--';
+            let setStr = '--:--';
+
+            if (typeof SunCalc !== 'undefined') {
+                const times = SunCalc.getMoonTimes(today, lat, lng);
+                const formatTime = (d) => {
+                    if (!d || isNaN(d)) return '--:--'; // 달이 안 뜨거나 안 지는 날 예외 처리
+                    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                };
+                riseStr = formatTime(times.rise);
+                setStr = formatTime(times.set);
+            }
+
+            document.getElementById('moonRiseSet').innerHTML = `<span class="text-amber-400 mr-[1px]">▲</span>${riseStr} <span class="text-blue-400 ml-1 mr-[1px]">▼</span>${setStr}`;
+            // -----------------------------------------------------
 
             const synodicMonth = 29.53058867; 
             const newMoonDate = new Date('2000-01-06T18:14:00Z').getTime(); 
