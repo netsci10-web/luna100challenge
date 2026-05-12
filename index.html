@@ -358,7 +358,7 @@
             {id:3, name:"바다/고지대 이분법 (Mare/Highland Dichotomy)", sig:"조성 차이", lat:4, lng:4, diam:0, desc:"앞면은 주로 현무암질 '바다'로 덮여 있는 반면, 뒷면과 고지대는 밝은 사장암으로 이루어져 극명한 대비를 보여줍니다.", obs:"[추천 관측 월령: 10~15일경]\n저배율 망원경으로 밝고 거친 고지대와 매끄럽고 어두운 바다 지형의 경계를 따라 훑으며 관찰하세요.", img:"https://upload.wikimedia.org/wikipedia/commons/d/d4/Moon_back_-_LRO_2010_10_Mosaic.jpg"},
             {id:4, name:"아펜니노 산맥 (Apennines)", sig:"분지 테두리", lat:18.9, lng:-3.7, diam:70, desc:"비의 바다 형성 시 융기된 산맥. 최고 높이가 5,000m에 달하며 달에서 가장 웅장하고 높은 산맥입니다.", obs:"[추천 관측 월령: 7~8일경, 21~22일경]\n명암경계선이 산맥에 걸칠 때 관찰하면 험준한 봉우리들이 던지는 예리하고 긴 그림자를 볼 수 있습니다."},
             {id:5, name:"코페르니쿠스 (Copernicus)", sig:"복합 크레이터", lat:9.7, lng:-20.1, diam:93, desc:"다중 중앙 봉우리와 테라스(계단식) 구조의 안쪽 벽면이 돋보이는 '달의 군주'입니다.", obs:"[추천 관측 월령: 9~10일경, 23~24일경]\n내부의 중앙 봉우리와 다층 계단식 벽을 고배율로 관측하세요. 보름달에는 주변의 광조를 확인할 수 있습니다."},
-            {id:6, name:"티코 (Tycho)", sig:"광조 크레이터", lat:-43.3, lng:-11.1, diam:85, desc:"약 1억 년 전 형성된 젊은 크레이터로, 달 전역으로 수천 km나 뻗어나가는 눈부신 광조 체계의 중심입니다.", obs:"[추천 관측 월령: 9일경~보름, 23일경]\n달 표면을 가로지르는 광조를 저배율에서 확인하고, 중심의 날카로운 봉우리를 고배율로 탐사하세요."},
+            {id:6, name:"티코 (Tycho)", sig:"광조 크레이터", lat:-43.3, lng:-11.1, diam:85, desc:"약 1억 전 형성된 젊은 크레이터로, 달 전역으로 수천 km나 뻗어나가는 눈부신 광조 체계의 중심입니다.", obs:"[추천 관측 월령: 9일경~보름, 23일경]\n달 표면을 가로지르는 광조를 저배율에서 확인하고, 중심의 날카로운 봉우리를 고배율로 탐사하세요."},
             {id:7, name:"알타이 절벽 (Altai Scarp)", sig:"분지 단층", lat:-24.3, lng:22.6, diam:425, desc:"거대 충돌로 인해 지각이 무너져 내리며 형성된 400km 길이의 아크형 절벽 지형입니다.", obs:"[추천 관측 월령: 5~6일경, 19~20일경]\n사선광이 비출 때, 초승달 모양으로 둥글게 굽어진 긴 절벽 단층의 선명한 그림자를 찾아보세요."},
             {id:8, name:"테오필루스 그룹 (Theophilus, Cyrillus, Catharina)", sig:"침식 단계", lat:-13.2, lng:24.0, diam:100, desc:"서로 다른 시기에 형성된 테오필루스, 키릴루스, 카타리나가 나란히 위치하여 침식 단계를 뚜렷이 보여줍니다.", obs:"[추천 관측 월령: 5일경, 19일경]\n가장 날카로운 테오필루스부터 둥글게 깎인 카타리나까지 분화구의 노화 3단계를 비교하며 관측하세요."},
             {id:9, name:"클라비우스 (Clavius)", sig:"거대 크레이터", lat:-58.8, lng:-14.1, diam:225, desc:"지름 225km에 달하는 남부 고지대의 거대 분화구. 내부에 크기가 점차 줄어드는 작은 분화구들이 배열되어 있습니다.", obs:"[추천 관측 월령: 8~9일경, 22~23일경]\n망원경 분해능 테스트용입니다. 내부의 둥근 구덩이들을 크기순으로 어디까지 세어낼 수 있는지 도전하세요."},
@@ -691,17 +691,13 @@
             
             Object.values(markers).forEach(m => {
                 m.setOpacity(0.6);
-                m.unbindTooltip(); 
-                const id = Object.keys(markers).find(key => markers[key] === m);
-                if(id) {
-                    const originalName = lunar100Data.find(d => d.id == id).name.split('(')[0].trim();
-                    m.bindTooltip(`<b>${originalName}</b>`, { direction: 'top', offset: [0, -15], className: 'hover-tooltip' });
-                }
             });
             
             if (markers[item.id]) {
                 markers[item.id].setOpacity(0);
-                markers[item.id].unbindTooltip(); 
+                if (markers[item.id].isTooltipOpen && markers[item.id].isTooltipOpen()) {
+                    markers[item.id].closeTooltip();
+                }
             }
 
             let z = getMainMapZoom(item.diam, item.id);
@@ -800,12 +796,6 @@
             
             Object.values(markers).forEach(m => {
                 m.setOpacity(1);
-                m.unbindTooltip();
-                const id = Object.keys(markers).find(key => markers[key] === m);
-                if(id) {
-                    const originalName = lunar100Data.find(d => d.id == id).name.split('(')[0].trim();
-                    m.bindTooltip(`<b>${originalName}</b>`, { direction: 'top', offset: [0, -15], className: 'hover-tooltip' });
-                }
             });
             
             map.flyTo([0, 0], 3, { duration: 1.2 });
