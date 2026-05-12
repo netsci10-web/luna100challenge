@@ -263,7 +263,7 @@
         <!-- 1. 메인 지도 영역 -->
         <div id="map-container">
             <div id="map"></div>
-            <div id="coordDisplay" class="coord-display">중앙: 0.00°, 0.00°</div>
+            <div id="coordDisplay" class="coord-display">월면좌표: 북위 0.00°, 동경 0.00°</div>
         </div>
 
         <!-- 2. 리스트 및 상세 정보 영역 -->
@@ -354,7 +354,7 @@
                         </div>
 
                         <div class="mt-4 pt-4 border-t border-slate-200 text-xs text-slate-500 flex justify-between font-mono">
-                            <span>좌표: <span id="infoCoords"></span></span>
+                            <span>월면좌표: <span id="infoCoords"></span></span>
                             <span>크기: <span id="infoDiam"></span>km</span>
                         </div>
                     </div>
@@ -550,6 +550,14 @@
         const markers = {};
         let activeHighlight = null;
         let shadowLayer = null; 
+
+        // 월면좌표계 포맷 변환 함수
+        function formatLunarCoords(lat, lng, isShort = false) {
+            const latStr = lat >= 0 ? `북위 ${Math.abs(lat).toFixed(2)}°` : `남위 ${Math.abs(lat).toFixed(2)}°`;
+            const lngStr = lng >= 0 ? `동경 ${Math.abs(lng).toFixed(2)}°` : `서경 ${Math.abs(lng).toFixed(2)}°`;
+            
+            return `${latStr}, ${lngStr}`; // 상세 정보창과 오버레이 모두 동일하고 간결하게 적용
+        }
 
         // 관측 난이도 사각형 UI 생성 함수 (1~100번을 5단계로 분류)
         function getDifficultyHtml(id, isLarge = false) {
@@ -774,9 +782,11 @@
                 document.getElementById('infoObs').innerHTML = obsText.replace(/\n/g, '<br>');
             }
             
-            const coordsText = item.id <= 3 ? "광범위/전체" : `${item.lat.toFixed(2)}°, ${item.lng.toFixed(2)}°`;
-            document.getElementById('infoCoords').innerText = coordsText;
-            document.getElementById('coordDisplay').innerText = `선택: ${coordsText} | 확대: ${z}`;
+            const coordsTextFull = item.id <= 3 ? "광범위/전체" : formatLunarCoords(item.lat, item.lng, false);
+            const coordsTextShort = item.id <= 3 ? "광범위/전체" : formatLunarCoords(item.lat, item.lng, true);
+
+            document.getElementById('infoCoords').innerText = coordsTextFull;
+            document.getElementById('coordDisplay').innerText = `선택: ${coordsTextShort} | 확대: ${z}`;
             document.getElementById('infoDiam').innerText = item.diam || "전체";
             
             const infoImg = document.getElementById('infoImg');
@@ -933,7 +943,8 @@
             if (!isFeatureSelected) {
                 const center = map.getCenter();
                 const zoom = map.getZoom();
-                document.getElementById('coordDisplay').innerText = `중앙: ${center.lat.toFixed(2)}°, ${center.lng.toFixed(2)}° | 확대: ${zoom}`;
+                const coordsTextShort = formatLunarCoords(center.lat, center.lng, true);
+                document.getElementById('coordDisplay').innerText = `월면좌표: ${coordsTextShort} | 확대: ${zoom}`;
             }
         }
 
