@@ -63,10 +63,11 @@
             transition: all 0.2s;
             margin-left: -13px; margin-top: -13px; 
         }
-        .custom-lunar-marker.observed div {
-            background-color: rgba(30, 41, 59, 0.95); 
-            border-color: #22c55e !important; 
-            color: #22c55e; 
+        /* 관찰 완료 시 녹색 바탕으로 변경 */
+        .custom-lunar-marker div.observed {
+            background-color: #22c55e !important; 
+            border-color: #ffffff !important; 
+            color: #ffffff !important; 
         }
         .custom-lunar-marker.active-marker div {
             background-color: #3b82f6; 
@@ -146,7 +147,7 @@
         .list-item {
             cursor: pointer; border: 1px solid #e2e8f0; background: #ffffff;
             transition: all 0.2s; padding: 12px; border-radius: 12px;
-            display: flex; align-items: center; gap: 12px;
+            display: flex; flex-direction: column; justify-content: center; gap: 4px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
         .list-item:active { transform: scale(0.98); }
@@ -228,6 +229,13 @@
 <body>
 
 <div id="app-container">
+    <!-- 앱 타이틀 상단 헤더 추가 -->
+    <header class="bg-slate-900 text-slate-50 py-3 px-4 flex justify-center items-center shrink-0 z-50 shadow-md relative">
+        <h1 class="text-[17px] font-black tracking-widest uppercase flex items-center gap-2.5">
+            <span class="text-xl">🌕</span> LUNAR 100 CHALLENGE
+        </h1>
+    </header>
+
     <div class="progress-bar-container"><div id="progressBar" class="progress-bar"></div></div>
 
     <div id="main-layout">
@@ -520,14 +528,14 @@
                 card.onclick = () => focusItem(item);
                 
                 card.innerHTML = `
-                    <div id="check-${item.id}" class="check-btn ${isObserved ? 'checked' : ''}" onclick="toggleObservation(${item.id}, event)">
-                        ${isObserved ? '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>' : ''}
-                    </div>
-                    <div class="flex-grow min-w-0 pr-2">
-                        <div class="flex items-center gap-1.5 mb-0.5">
-                            <span class="badge">L${item.id}</span>
-                            <h3 class="text-[13.5px] font-bold text-slate-800 truncate">${item.name}</h3>
+                    <div class="flex items-center gap-2.5 w-full min-w-0">
+                        <div id="check-${item.id}" class="check-btn shrink-0 ${isObserved ? 'checked' : ''}" onclick="toggleObservation(${item.id}, event)">
+                            ${isObserved ? '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>' : ''}
                         </div>
+                        <span class="badge shrink-0">L${item.id}</span>
+                        <h3 class="text-[13.5px] font-bold text-slate-800 truncate">${item.name}</h3>
+                    </div>
+                    <div class="pl-[38px] pr-2 w-full min-w-0">
                         <p class="text-[11px] text-slate-500 truncate">${item.sig}</p>
                     </div>
                 `;
@@ -537,26 +545,24 @@
             updateCenterCoords(); 
         }
 
-        // 지형 크기에 맞게 미니맵 줌값 자동 연산 (최대 줌 5로 제한)
         function getOptimalZoom(diam) {
             if (!diam || diam === 0) return 3;
-            const targetPixels = 180; 
+            const targetPixels = 180; // 미니맵 220px 높이에 지형이 180px 정도 차지하도록
             const kmPerPixelAtZoom0 = 10917 / 256; 
             const requiredZoom = Math.log2(kmPerPixelAtZoom0 * targetPixels / diam);
             let z = Math.round(requiredZoom);
             
             if (z < 3) z = 3;
-            if (z > 5) z = 5; // 확대 5 이상은 사용하지 않도록 강제 제한
+            if (z > 5) z = 5; // 상세 설명 이미지의 최대 확대를 5로 엄격히 제한
             return z;
         }
 
+        // 메인 맵 적절한 줌 연산 (최대 줌 6으로 제한)
         function getMainMapZoom(diam, id) {
             if (id <= 3 || diam >= 800) return 3;
             if (diam >= 400) return 4;
             if (diam >= 150) return 5;
-            if (diam >= 50) return 6;
-            if (diam >= 20) return 7;
-            return 8; 
+            return 6; // 클릭 시 자동 확대되는 최대 레벨을 6으로 제한 (수동으로는 더 확대 가능)
         }
 
         function focusItem(item) {
