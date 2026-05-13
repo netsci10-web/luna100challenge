@@ -146,7 +146,6 @@
         }
         @media (min-width: 640px) and (max-width: 767px) { .lunar-grid { grid-template-columns: repeat(2, 1fr); } }
         
-        /* list-item 클래스명 충돌로 인한 점(Bullet) 버그 해결을 위해 lunar-card로 이름 변경 */
         .lunar-card {
             cursor: pointer; border: 1px solid #e2e8f0; background: #ffffff;
             transition: all 0.2s; padding: 12px; border-radius: 12px;
@@ -233,12 +232,18 @@
             border: none !important; border-radius: 6px !important;
             box-shadow: 0 4px 15px rgba(0,0,0,0.4); font-weight: 600;
         }
+
+        /* 커스텀 스크롤바 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
 <body>
 
 <div id="app-container">
-    <!-- 앱 타이틀 상단 헤더 (모바일에서 flex-col을 통해 두 줄로 분리) -->
+    <!-- 앱 타이틀 상단 헤더 -->
     <header class="bg-slate-900 text-slate-50 py-3 px-3 sm:px-4 flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-0 shrink-0 z-50 shadow-md relative">
         <h1 class="text-[15px] sm:text-[17px] font-black tracking-widest uppercase flex items-center justify-center w-full sm:w-auto gap-1.5 sm:gap-2">
             <span class="text-lg sm:text-xl">🌕</span> LUNAR 100 CHALLENGE
@@ -248,13 +253,11 @@
             <!-- 날짜/월령 위젯 -->
             <label class="relative flex items-center justify-center gap-1.5 sm:gap-2 text-[9.5px] sm:text-xs font-extrabold text-amber-300 bg-slate-800 py-1.5 px-2 sm:px-3 rounded-full border border-slate-700 shadow-inner cursor-pointer hover:bg-slate-700 transition-colors" title="오늘 관측 가능한 대상만 보기">
                 
-                <!-- 날짜 표시 영역 (월출/월몰 시간 앞으로 이동) -->
                 <div class="text-slate-200 pr-1.5 sm:pr-2 border-r border-slate-600 pointer-events-none whitespace-nowrap font-mono flex items-center gap-1">
                     <span id="dateStrMobile" class="sm:hidden tracking-tight"></span>
                     <span id="dateStrDesktop" class="hidden sm:inline tracking-tight"></span>
                 </div>
 
-                <!-- 월출 / 월몰 시간 표시 영역 -->
                 <div class="text-slate-300 pr-1.5 sm:pr-2 border-r border-slate-600 pointer-events-none whitespace-nowrap font-mono flex items-center gap-0.5 sm:gap-1">
                     <span id="moonRiseSet" class="tracking-tighter flex items-center"></span>
                 </div>
@@ -268,9 +271,21 @@
 
             <!-- 마커 토글 스위치 -->
             <label class="shrink-0 flex items-center gap-1.5 text-[11px] sm:text-xs font-bold cursor-pointer bg-slate-800 py-1.5 px-2 sm:px-3 rounded-full hover:bg-slate-700 transition-colors border border-slate-700 shadow-inner">
-                <span>Luna 100</span>
+                <span id="markerToggleTextDesktop" class="hidden sm:inline">Luna 100</span>
+                <span id="markerToggleTextMobile" class="sm:hidden">마커</span>
                 <input type="checkbox" id="markerToggle" checked class="w-3.5 h-3.5 accent-blue-500 cursor-pointer" onchange="toggleMarkerLayer(event)">
             </label>
+
+            <!-- 언어 선택 스위치 -->
+            <select id="langSelect" class="shrink-0 bg-slate-800 text-slate-200 text-[10px] sm:text-xs font-bold py-1.5 px-1.5 sm:px-2 rounded-md border border-slate-700 outline-none cursor-pointer hover:bg-slate-700 transition-colors" onchange="changeLanguage(this.value)">
+                <option value="ko">KOR</option>
+                <option value="en">ENG</option>
+            </select>
+
+            <!-- 도움말 (관측 가이드) 버튼 -->
+            <button onclick="openHelpModal()" class="shrink-0 bg-slate-800 text-slate-200 p-1.5 sm:p-[7px] rounded-full border border-slate-700 hover:bg-slate-700 transition-colors" title="망원경 달 관측 가이드">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </button>
         </div>
     </header>
 
@@ -289,7 +304,7 @@
             <div class="search-header">
                 <div class="flex flex-col justify-center text-center shrink-0">
                     <span class="text-xl leading-none">🌙</span>
-                    <span id="progressText" class="text-[10px] font-bold text-blue-600 mt-1 whitespace-nowrap">0/100</span>
+                    <span id="progressText" class="text-[10px] font-bold text-blue-600 mt-1 whitespace-nowrap">0/100 달성</span>
                 </div>
                 
                 <!-- 월령(관측 시기) 선택 필터 -->
@@ -324,12 +339,12 @@
                     <div class="detail-header">
                         <button onclick="backToList()" class="flex items-center text-blue-600 font-bold text-sm bg-blue-50 px-3 py-1.5 rounded-lg active:bg-blue-100 transition-colors">
                             <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="mr-1"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"></path></svg>
-                            목록으로
+                            <span id="backBtnText">목록으로</span>
                         </button>
                         
                         <!-- '관찰' 라벨과 체크 버튼 그룹화 -->
-                        <div class="flex items-center gap-1.5 cursor-pointer group" onclick="toggleObservationFromInfo()" title="관찰 완료 체크">
-                            <span class="text-[13px] font-extrabold text-slate-500 group-active:scale-95 transition-transform">관찰</span>
+                        <div class="flex items-center gap-1.5 cursor-pointer group" onclick="toggleObservationFromInfo()">
+                            <span class="text-[13px] font-extrabold text-slate-500 group-active:scale-95 transition-transform" id="obsBtnText">관찰</span>
                             <div id="infoCheckBtn" class="check-btn group-active:scale-95">
                                 <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
                             </div>
@@ -340,7 +355,7 @@
                     <div class="detail-body" id="detailBodyContent">
                         <div id="infoMoonAge" class="moon-age-badge hidden mb-3">
                             <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
-                            <span>관측 월령: <span id="infoMoonAgeText"></span></span>
+                            <span><span id="infoMoonAgeLabel">관측 월령:</span> <span id="infoMoonAgeText"></span></span>
                         </div>
                     
                         <div class="flex items-start gap-2 mb-1.5">
@@ -352,7 +367,7 @@
                         <div class="flex items-center justify-between mb-3">
                             <p id="infoSig" class="text-xs font-bold text-blue-600 uppercase tracking-tight m-0"></p>
                             <div class="flex items-center gap-1.5">
-                                <span class="text-[10px] font-bold text-slate-400 tracking-tighter">난이도</span>
+                                <span class="text-[10px] font-bold text-slate-400 tracking-tighter diff-label">난이도</span>
                                 <div id="infoDifficulty"></div>
                             </div>
                         </div>
@@ -360,30 +375,51 @@
                         <p id="infoDesc" class="text-sm text-slate-700 leading-relaxed"></p>
                         
                         <div class="observation-tip">
-                            <h4 class="text-xs font-black text-slate-900 flex items-center gap-1 mb-2">🔭 망원경 관측 가이드</h4>
+                            <h4 class="text-xs font-black text-slate-900 flex items-center gap-1 mb-2">🔭 <span id="guideTitleText">망원경 관측 가이드</span></h4>
                             <p id="infoObs" class="text-slate-700 text-[13px] font-medium"></p>
                             
-                            <!-- 추천 배율 (관측 가이드 하단으로 이동) -->
+                            <!-- 추천 배율 -->
                             <div class="mt-3">
                                 <div id="infoMagBadge" class="mag-badge">
                                     <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                                    <span>추천 배율: <span id="infoMagText"></span></span>
+                                    <span><span id="infoMagLabel">추천 배율:</span> <span id="infoMagText"></span></span>
                                 </div>
                             </div>
                         </div>
 
                         <!-- 실사 사진 (지도 선 제거) -->
                         <div class="detail-media-container">
-                            <img id="infoImg" src="" alt="지형 이미지" class="hidden">
+                            <img id="infoImg" src="" alt="Feature Image" class="hidden">
                             <div id="miniMap" class="hidden"></div>
                         </div>
 
                         <div class="mt-4 pt-4 border-t border-slate-200 text-xs text-slate-500 flex justify-between font-mono">
-                            <span>월면좌표: <span id="infoCoords"></span></span>
-                            <span>크기: <span id="infoDiam"></span>km</span>
+                            <span><span id="infoCoordsLabel">월면좌표:</span> <span id="infoCoords"></span></span>
+                            <span><span id="infoDiamLabel">크기:</span> <span id="infoDiam"></span>km</span>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 도움말 (관측 가이드) 모달 -->
+    <div id="helpModal" class="fixed inset-0 z-[1000] hidden items-center justify-center p-4 sm:p-6 opacity-0 transition-opacity duration-300">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm cursor-pointer" onclick="closeHelpModal()"></div>
+        <div class="relative bg-white w-full max-w-2xl rounded-2xl shadow-2xl flex flex-col max-h-full transform scale-95 transition-transform duration-300" id="helpModalInner">
+            <!-- 모달 헤더 -->
+            <div class="px-5 py-4 border-b border-slate-200 flex justify-between items-center shrink-0 bg-slate-50 rounded-t-2xl">
+                <h2 id="helpModalTitle" class="text-[17px] font-black text-slate-800 flex items-center gap-2">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="text-blue-600"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span>망원경 달 관측 가이드</span>
+                </h2>
+                <button onclick="closeHelpModal()" class="text-slate-400 hover:text-slate-600 hover:bg-slate-200 p-1.5 rounded-full transition-colors">
+                    <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <!-- 모달 내용 -->
+            <div class="p-5 sm:p-6 overflow-y-auto" id="helpModalContent">
+                <!-- JS에서 언어에 따라 내용 주입 -->
             </div>
         </div>
     </div>
@@ -391,122 +427,287 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // UI Dictionary for Bilingual Support
+        const uiText = {
+            ko: {
+                search: "검색...",
+                allPhases: "모든 월령", waxingCrescent: "초승달 (2~5일)", firstQuarter: "상현달 (6~9일)", gibbous: "보름 무렵 (10~13일)",
+                fullMoon: "보름 (14~15일)", waningGibbous: "보름 직후 (16~19일)", lastQuarter: "하현달 (20~24일)", waningCrescent: "그믐달 (25~28일)",
+                special: "특수 (L1~3, 칭동)", progress: "달성", back: "목록으로", observe: "관찰", difficulty: "난이도",
+                moonAge: "관측 월령:", recMag: "추천 배율:", guideTitle: "망원경 관측 가이드", coords: "월면좌표:", diam: "크기:",
+                entire: "광범위/전체", northLat: "북위", southLat: "남위", eastLng: "동경", westLng: "서경",
+                select: "선택:", zoom: "확대:", markerMobile: "마커",
+                mag1: "맨눈 (1x)", mag2: "쌍안경 (7x ~ 10x)", mag3: "맨눈 ~ 저배율 (10x ~ 30x)", mag4: "저배율 (30x ~ 50x)",
+                mag5: "중저배율 (50x ~ 80x)", mag6: "중배율 (80x ~ 120x)", mag7: "고배율 (120x ~ 150x)", mag8: "초고배율 (150x ~ 200x)", mag9: "극한배율 (200x 이상)",
+                helpModalTitle: "망원경 달 관측 가이드",
+                helpModalHtml: `
+                    <div class="text-[13.5px] sm:text-sm text-slate-700 leading-relaxed">
+                        <div class="mb-5">
+                            <h3 class="font-extrabold text-slate-900 text-[15px] mb-2 text-blue-700">1. 망원경을 통한 주요 관측 포인트 (무엇을 봐야 할까?)</h3>
+                            <p class="mb-2">달의 지형은 태양빛이 비추는 각도(월령)에 따라 그 모습이 극적으로 변합니다. 특히 <strong>명암 경계선(Terminator)</strong> 근처를 관측할 때 지형의 고저차가 그림자를 통해 가장 입체적으로 드러납니다.</p>
+                            <ul class="list-disc pl-5 space-y-1.5">
+                                <li><strong>크레이터(Craters):</strong> 코페르니쿠스(Copernicus)처럼 계단식 성벽과 중앙 봉우리를 가진 크레이터, 플라톤(Plato)처럼 용암으로 바닥이 평평하게 채워진 크레이터, 그리고 티코(Tycho)처럼 보름달일 때 사방으로 길게 뻗어나가는 밝은 광조(Ray system)를 가진 크레이터들의 특징을 세밀하게 비교해 보는 것이 좋습니다.</li>
+                                <li><strong>바다와 주름 능선(Maria & Dorsa):</strong> 달의 바다는 얼핏 평탄해 보이지만, 조명각이 낮을 때 관측하면 바다 표면을 가로지르는 미세하고 거대한 주름 능선(Wrinkle ridges)들의 네트워크를 발견할 수 있습니다.</li>
+                                <li><strong>산맥과 계곡, 릴(Mountains, Vallis & Rilles):</strong> 알프스 산맥과 같은 웅장한 산맥의 거친 질감, 라이타 계곡 같은 거대한 협곡, 그리고 아주 가늘고 구불구불한 릴(용암 수로)들을 추적해 보세요. 릴은 폭이 좁기 때문에 망원경의 분해능과 대기 상태가 관측의 성공을 좌우합니다.</li>
+                            </ul>
+                        </div>
+                        <hr class="border-slate-200 mb-5">
+                        <div class="mb-5">
+                            <h3 class="font-extrabold text-slate-900 text-[15px] mb-2 text-blue-700">2. 추천 관측 배율 및 장비 세팅</h3>
+                            <p class="mb-2">12인치 돕소니안이나 200mm 반사 망원경처럼 대구경 시스템, 혹은 고대비 굴절 망원경을 활용할 때 적용할 수 있는 권장 사항입니다.</p>
+                            <ul class="list-disc pl-5 space-y-1.5">
+                                <li><strong>관측 배율:</strong> 실제 관측지에서의 대기 흔들림(Seeing)을 고려할 때 144배에서 207배 사이의 <strong>중고배율</strong>이 달의 미세 지형을 가장 또렷하고 선명하게 보여줍니다. 반면 달 전체의 윤곽이나 지구조(Earthshine)를 한눈에 볼 때는 넓은 시야각의 60배~86배 수준의 <strong>저배율</strong>을 활용하는 것이 적합합니다.</li>
+                                <li><strong>대기 요동 극복 (편심 마스크):</strong> 12인치급 이상의 대구경 망원경을 쓸 때 대기의 흔들림이 심한 날이라면, 부경과 스파이더의 그림자를 피한 <strong>편심 마스크(Off-axis stop)</strong>를 씌워 구경을 약 6인치(152mm) 수준으로 줄여보는 것을 권장합니다. 빛의 번짐을 효과적으로 줄여주어 훨씬 깔끔하고 날카로운 상을 얻을 수 있습니다.</li>
+                            </ul>
+                        </div>
+                        <hr class="border-slate-200 mb-5">
+                        <div>
+                            <h3 class="font-extrabold text-slate-900 text-[15px] mb-2 text-blue-700">3. 아이피스 및 액세서리 활용</h3>
+                            <ul class="list-disc pl-5 space-y-1.5">
+                                <li><strong>아이피스:</strong> f/5 수준의 짧은 초점비 반사 망원경의 경우, 플뢰슬(Plössl)이나 오르소스코픽(Orthoscopic) 디자인이 우수한 선명도와 콘트라스트를 제공합니다.</li>
+                                <li><strong>바로우 렌즈(Barlow Lens):</strong> 고배율을 얻고자 할 때는 고품질의 3매옥(트리플렛) 바로우 렌즈를 사용하는 것이 색수차 유발 없이 선명한 이미지를 유지하는 데 훌륭한 선택입니다.</li>
+                                <li><strong>필터 사용:</strong> 눈부심을 줄이기 위한 달 필터(ND) 외에도, 미세한 색수차나 빛의 번짐이 상의 선명도를 떨어뜨릴 때 적절한 <strong>컬러 필터</strong>를 덧대어 관측하면 특정 파장을 걸러내어 상을 한층 날카롭게 만들 수 있습니다.</li>
+                            </ul>
+                        </div>
+                    </div>
+                `
+            },
+            en: {
+                search: "Search...",
+                allPhases: "All Phases", waxingCrescent: "Waxing Crescent (2-5d)", firstQuarter: "First Quarter (6-9d)", gibbous: "Waxing Gibbous (10-13d)",
+                fullMoon: "Full Moon (14-15d)", waningGibbous: "Waning Gibbous (16-19d)", lastQuarter: "Last Quarter (20-24d)", waningCrescent: "Waning Crescent (25-28d)",
+                special: "Special (L1~3, Libration)", progress: "Achieved", back: "Back", observe: "Observed", difficulty: "Difficulty",
+                moonAge: "Moon Age:", recMag: "Rec. Mag:", guideTitle: "Observation Guide", coords: "Lunar Coords:", diam: "Diameter:",
+                entire: "Wide/Entire", northLat: "N", southLat: "S", eastLng: "E", westLng: "W",
+                select: "Sel:", zoom: "Zoom:", markerMobile: "Marker",
+                mag1: "Naked Eye (1x)", mag2: "Binoculars (7x-10x)", mag3: "Low Power (10x-30x)", mag4: "Low Power (30x-50x)",
+                mag5: "Med-Low Power (50x-80x)", mag6: "Medium Power (80x-120x)", mag7: "High Power (120x-150x)", mag8: "Ultra-High (150x-200x)", mag9: "Extreme (200x+)",
+                helpModalTitle: "Lunar Telescope Guide",
+                helpModalHtml: `
+                    <div class="text-[13.5px] sm:text-sm text-slate-700 leading-relaxed">
+                        <div class="mb-5">
+                            <h3 class="font-extrabold text-slate-900 text-[15px] mb-2 text-blue-700">1. Key Observation Points</h3>
+                            <p class="mb-2">Lunar features change dramatically with the sun's angle. Observing near the <strong>Terminator</strong> reveals the most striking 3D topography through shadows.</p>
+                            <ul class="list-disc pl-5 space-y-1.5">
+                                <li><strong>Craters:</strong> Compare complex features like the terraced walls of Copernicus, the lava-flooded flat floor of Plato, and the extensive ray system of Tycho visible during the full moon.</li>
+                                <li><strong>Maria & Dorsa (Wrinkle Ridges):</strong> Low-angle lighting reveals a subtle and vast network of wrinkle ridges crossing the otherwise flat lunar maria.</li>
+                                <li><strong>Mountains, Vallis & Rilles:</strong> Track the rugged texture of Montes Alpes, huge valleys like Vallis Rheita, and very thin, winding rilles (lava channels). Telescope resolution and atmospheric seeing determine success here.</li>
+                            </ul>
+                        </div>
+                        <hr class="border-slate-200 mb-5">
+                        <div class="mb-5">
+                            <h3 class="font-extrabold text-slate-900 text-[15px] mb-2 text-blue-700">2. Magnifications & Equipment</h3>
+                            <p class="mb-2">Practical recommendations for observing with large aperture systems like Dobsonians or high-contrast refractors.</p>
+                            <ul class="list-disc pl-5 space-y-1.5">
+                                <li><strong>Magnification:</strong> Real-world seeing dictates that <strong>medium-high magnifications (144x to 207x)</strong> provide the sharpest views of fine details. Conversely, use <strong>low magnifications (60x to 86x)</strong> to view the entire lunar disk, eclipses, or earthshine.</li>
+                                <li><strong>Off-axis Stop:</strong> On nights with poor seeing using large reflectors, use an <strong>off-axis mask</strong> (avoiding the secondary mirror and spider vanes) to reduce aperture to ~6 inches. This reduces light scatter and atmospheric turbulence, yielding cleaner, sharper views akin to a refractor.</li>
+                            </ul>
+                        </div>
+                        <hr class="border-slate-200 mb-5">
+                        <div>
+                            <h3 class="font-extrabold text-slate-900 text-[15px] mb-2 text-blue-700">3. Eyepieces and Accessories</h3>
+                            <ul class="list-disc pl-5 space-y-1.5">
+                                <li><strong>Eyepieces:</strong> For fast f/5 reflectors, Plössl or Orthoscopic designs offer excellent sharpness and contrast.</li>
+                                <li><strong>Barlow Lenses:</strong> When seeking high magnification, a high-quality Triplet (Apochromatic) Barlow lens is highly recommended to maintain sharp images without introducing chromatic aberration.</li>
+                                <li><strong>Filters:</strong> Beyond a Moon (ND) filter to reduce glare, using an appropriate <strong>color filter</strong> can filter out specific wavelengths to sharpen the image when atmospheric refraction or edge chromatic aberration reduces clarity.</li>
+                            </ul>
+                        </div>
+                    </div>
+                `
+            }
+        };
+
+        let currentLang = 'ko'; // Global language state
+
+        // 다국어 지원이 포함된 100개 관측 데이터
         const lunar100Data = [
-            {id:1, name:"달 (Moon)", sig:"지구의 위성", lat:4, lng:-4, diam:0, desc:"우리의 영원한 동반자. 달 표면의 어두운 바다와 밝은 고지대가 이루는 무늬는 맨눈으로도 선명하게 확인할 수 있습니다.", obs:"[추천 관측 월령: 전 월령]\n맨눈으로 토끼 무늬를 상상해보거나, 7x50 쌍안경을 통해 달 표면에 무수히 흩어진 충돌구들을 감상해보세요.", img:"https://upload.wikimedia.org/wikipedia/commons/e/e1/FullMoon2010.jpg"},
-            {id:2, name:"지구광 (Earthshine)", sig:"지구 반사광", lat:-4, lng:4, diam:0, desc:"지구의 바다와 구름에서 반사된 태양빛이 다시 달의 어두운 그림자 부분을 비추는 환상적인 현상입니다.", obs:"[추천 관측 월령: 2~4일경, 25~28일경]\n초승달이나 그믐달 시기에 달의 어두운 면이 신비로운 푸른 빛을 띠는 것을 쌍안경으로 관찰할 수 있습니다.", img:"https://upload.wikimedia.org/wikipedia/commons/5/5d/Aschgraues.Mondlicht.P1162513.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=original"},
-            {id:3, name:"바다/고지대 이분법 (Mare/Highland Dichotomy)", sig:"조성 차이", lat:4, lng:4, diam:0, desc:"앞면은 주로 현무암질 '바다'로 덮여 있는 반면, 뒷면과 고지대는 밝은 사장암으로 이루어져 극명한 대비를 보여줍니다.", obs:"[추천 관측 월령: 10~15일경]\n저배율 망원경으로 밝고 거친 고지대와 매끄럽고 어두운 바다 지형의 경계를 따라 훑으며 관찰하세요.", img:"https://upload.wikimedia.org/wikipedia/commons/e/e1/FullMoon2010.jpg"},
-            {id:4, name:"아펜니노 산맥 (Apennines)", sig:"분지 테두리", lat:18.9, lng:-3.7, diam:70, desc:"비의 바다 형성 시 융기된 산맥. 최고 높이가 5,000m에 달하며 달에서 가장 웅장하고 높은 산맥입니다.", obs:"[추천 관측 월령: 7~8일경, 21~22일경]\n명암경계선이 산맥에 걸칠 때 관찰하면 험준한 봉우리들이 던지는 예리하고 긴 그림자를 볼 수 있습니다."},
-            {id:5, name:"코페르니쿠스 (Copernicus)", sig:"복합 크레이터", lat:9.7, lng:-20.1, diam:93, desc:"다중 중앙 봉우리와 테라스(계단식) 구조의 안쪽 벽면이 돋보이는 '달의 군주'입니다.", obs:"[추천 관측 월령: 9~10일경, 23~24일경]\n내부의 중앙 봉우리와 다층 계단식 벽을 고배율로 관측하세요. 보름달에는 주변의 광조를 확인할 수 있습니다."},
-            {id:6, name:"티코 (Tycho)", sig:"광조 크레이터", lat:-43.3, lng:-11.1, diam:85, desc:"약 1억 전 형성된 젊은 크레이터로, 달 전역으로 수천 km나 뻗어나가는 눈부신 광조 체계의 중심입니다.", obs:"[추천 관측 월령: 9일경~보름, 23일경]\n달 표면을 가로지르는 광조를 저배율에서 확인하고, 중심의 날카로운 봉우리를 고배율로 탐사하세요."},
-            {id:7, name:"알타이 절벽 (Altai Scarp)", sig:"분지 단층", lat:-24.3, lng:22.6, diam:425, desc:"거대 충돌로 인해 지각이 무너져 내리며 형성된 400km 길이의 아크형 절벽 지형입니다.", obs:"[추천 관측 월령: 5~6일경, 19~20일경]\n사선광이 비출 때, 초승달 모양으로 둥글게 굽어진 긴 절벽 단층의 선명한 그림자를 찾아보세요."},
-            {id:8, name:"테오필루스 그룹 (Theophilus, Cyrillus, Catharina)", sig:"침식 단계", lat:-13.2, lng:24.0, diam:100, desc:"서로 다른 시기에 형성된 테오필루스, 키릴루스, 카타리나가 나란히 위치하여 침식 단계를 뚜렷이 보여줍니다.", obs:"[추천 관측 월령: 5일경, 19일경]\n가장 날카로운 테오필루스부터 둥글게 깎인 카타리나까지 분화구의 노화 3단계를 비교하며 관측하세요."},
-            {id:9, name:"클라비우스 (Clavius)", sig:"거대 크레이터", lat:-58.8, lng:-14.1, diam:225, desc:"지름 225km에 달하는 남부 고지대의 거대 분화구. 내부에 크기가 점차 줄어드는 작은 분화구들이 배열되어 있습니다.", obs:"[추천 관측 월령: 8~9일경, 22~23일경]\n망원경 분해능 테스트용입니다. 내부의 둥근 구덩이들을 크기순으로 어디까지 세어낼 수 있는지 도전하세요."},
-            {id:10, name:"위난의 바다 (Mare Crisium)", sig:"독립 분지", lat:18.0, lng:59.0, diam:540, desc:"달 앞면 우측 가장자리에 홀로 동떨어져 있는 완벽한 원형의 바다입니다.", obs:"[추천 관측 월령: 3~4일경, 17~18일경]\n초승달 시기 가장 먼저 관측됩니다. 바다 안쪽에 동심원을 그리는 얇은 주름 능선을 탐사하세요."},
-            {id:11, name:"아리스타르쿠스 (Aristarchus)", sig:"가장 밝은 크레이터", lat:23.7, lng:-47.4, diam:40, desc:"반사율이 유난히 높아 달에서 가장 눈부시게 빛납니다. 주변은 화산재로 덮여있습니다.", obs:"[추천 관측 월령: 11~13일경, 25~27일경]\n보름달 시기에 너무 밝아 시야를 방해할 수 있으므로 달 필터(ND 필터)를 사용하여 관측하세요."},
-            {id:12, name:"프로클루스 (Proclus)", sig:"비대칭 광조", lat:16.1, lng:46.8, diam:28, desc:"위난의 바다 근처에 위치하며, 운석이 낮은 각도로 충돌해 부채꼴 모양의 비대칭 광조를 형성했습니다.", obs:"[추천 관측 월령: 4일경, 18일경, 보름]\n보름달 시기에 프로클루스를 중심으로 한쪽으로만 넓게 퍼져나가는 빛줄기를 확인하세요."},
-            {id:13, name:"가생디 (Gassendi)", sig:"갈라진 크레이터", lat:-17.5, lng:-40.1, diam:101, desc:"습기의 바다 북쪽 가장자리에 있으며, 마그마의 압력으로 바닥이 부풀어올라 수많은 균열이 생겼습니다.", obs:"[추천 관측 월령: 10~11일경, 24~25일경]\n명암경계선 근처일 때, 크레이터 바닥의 거미줄 같은 릴(틈새) 네트워크를 고배율로 추적하세요."},
-            {id:14, name:"무지개 만 (Sinus Iridum)", sig:"반원형 만", lat:45.0, lng:-32.0, diam:260, desc:"완전한 크레이터였으나 한쪽 벽이 무너져 비의 바다로 녹아든 반원형 지형. 쥐라 산맥이 감싸고 있습니다.", obs:"[추천 관측 월령: 10~11일경, 24~25일경]\n해가 뜰 무렵, 쥐라 산맥 봉우리들이 먼저 빛을 받아 반원형으로 빛나는 '골든 핸들' 효과가 장관입니다."},
-            {id:15, name:"직선 절벽 (Rupes Recta)", sig:"유명한 단층", lat:-21.8, lng:-7.8, diam:110, desc:"구름의 바다 서쪽에 자리한 달에서 가장 뚜렷하게 관측되는 직선 단층입니다. 실제로는 완만한 경사입니다.", obs:"[추천 관측 월령: 8일경, 22일경]\n상현달 시기에는 길고 검은 선으로 보이며, 하현달 시기에는 반사되어 하얀 선으로 반전되어 보입니다."},
-            {id:16, name:"페타비우스 (Petavius)", sig:"복합 릴", lat:-25.1, lng:60.4, diam:177, desc:"바닥 중앙 봉우리에서 뻗어 나와 벽면까지 가로지르는 매우 깊고 거대한 균열이 특징입니다.", obs:"[추천 관측 월령: 3~4일경, 17~18일경]\n태양빛이 얕게 비출 때 바닥의 갈라진 거대한 틈새를 150배 이상의 고배율로 들여다보세요."},
-            {id:17, name:"슈뢰터 계곡 (Schröter's Valley)", sig:"거대 사행 릴", lat:26.2, lng:-50.8, diam:168, desc:"아리스타르쿠스 고원에 뱀처럼 파인 달 최대의 용암 수로. 폭 10km의 거대한 계곡입니다.", obs:"[추천 관측 월령: 12~13일경, 26~27일경]\n'코브라 머리' 모양의 입구를 찾은 뒤, 끝을 향해 구불구불 흐르는 계곡의 자취를 따라가보세요."},
-            {id:18, name:"맑음의 바다 연변 (Mare Serenitatis Dark Edges)", sig:"성분 차이", lat:17.8, lng:23.0, diam:100, desc:"중심부의 젊은 용암과 주변부의 오래된 용암의 티타늄 성분 차이로 가장자리가 더 어둡습니다.", obs:"[추천 관측 월령: 보름 전후]\n바다 가장자리를 따라 짙은 테두리가 형성된 모습을 관찰하세요."},
-            {id:19, name:"알프스 계곡 (Alpine Valley)", sig:"달의 지구대", lat:49.0, lng:3.0, diam:165, desc:"알프스 산맥을 166km에 걸쳐 직선으로 두 동강 낸 거대한 골짜기. 바닥 중심에 가느다란 릴이 있습니다.", obs:"[추천 관측 월령: 7~8일경, 21~22일경]\n계곡 바닥 한가운데를 가로지르는 폭 1km 미만의 릴을 분해해 내는 것은 대구경 망원경의 챌린지입니다."},
-            {id:20, name:"포시도니우스 (Posidonius)", sig:"훼손된 크레이터", lat:31.8, lng:29.9, diam:95, desc:"마그마가 내부를 채우면서 바닥이 융기하고, 벽면이 무너져 복잡한 주름과 틈새가 형성되었습니다.", obs:"[추천 관측 월령: 5~6일경, 19~20일경]\n바닥에 굽이치는 가느다란 주름 능선들과 갈라진 릴 구조를 사선광에서 주의 깊게 확인하세요."},
-            {id:21, name:"프라카스토리우스 (Fracastorius)", sig:"침수된 크레이터", lat:-21.5, lng:33.2, diam:124, desc:"북쪽 테두리가 용암에 완전히 녹아내려 감로주의 바다와 하나가 된 반쪽 크레이터입니다.", obs:"[추천 관측 월령: 5~6일경, 19~20일경]\n테두리가 허물어져 평평한 바다로 매끄럽게 이어지는 개방형 구조를 확인하세요."},
-            {id:22, name:"아리스타르쿠스 고원 (Aristarchus Plateau)", sig:"화산 퇴적", lat:26.0, lng:-51.0, diam:150, desc:"거대한 마름모꼴 화산 고원. 주변 평원보다 최대 2km 높으며 표면이 노란 화산재로 덮여 있습니다.", obs:"[추천 관측 월령: 12~13일경, 26~27일경]\n일반 바다의 질감과 대비되는 고원의 약간 누런 톤을 컬러 필터를 사용해 비교 관측해 보세요."},
-            {id:23, name:"피코 산 (Pico)", sig:"고립된 봉우리", lat:45.7, lng:-8.9, diam:25, desc:"비의 바다 분지 내부 고리의 파편으로, 평원 위에 높이 2.4km로 외롭게 솟아오른 산봉우리입니다.", obs:"[추천 관측 월령: 8~9일경, 22~23일경]\n명암경계선에 위치할 때 산이 평원 위로 던지는 바늘같이 뾰족하고 거대한 그림자를 감상하세요."},
-            {id:24, name:"히기누스 릴 (Hyginus Rille)", sig:"구덩이 사슬", lat:7.4, lng:7.8, diam:220, desc:"히기누스 크레이터를 중심으로 양쪽으로 V자형으로 뻗어나가며 함몰된 구덩이 사슬 계곡입니다.", obs:"[추천 관측 월령: 7일경, 21일경]\n중심이 꺾인 V자 형태의 릴과 그 틈새를 따라 박혀 있는 화산성 구덩이들을 구별해보세요."},
-            {id:25, name:"메시에 쌍둥이 (Messier & Messier A)", sig:"도탄 충돌", lat:-1.9, lng:47.6, diam:11, desc:"소행성이 1~5도의 극도로 낮은 각도로 스치듯 충돌하며 형성된 독특한 타원형 쌍둥이 크레이터입니다.", obs:"[추천 관측 월령: 4~5일경, 18~19일경]\n크레이터 동쪽으로만 곧게 뻗어 나간 두 가닥의 혜성 꼬리 모양 광조를 확인하세요."},
-            {id:26, name:"추위의 바다 (Mare Frigoris)", sig:"길쭉한 바다", lat:56.0, lng:1.4, diam:1600, desc:"달의 북반구 상단을 따라 띠 모양으로 길게 늘어선 비정형 바다입니다.", obs:"[추천 관측 월령: 7~8일경, 21~22일경]\n달 북쪽 가장자리를 따라 수평으로 광활하게 펼쳐진 특유의 좁고 긴 띠 모양 실루엣을 훑어보세요."},
-            {id:27, name:"아르키메데스 (Archimedes)", sig:"용암 바닥", lat:29.7, lng:-4.0, diam:83, desc:"내부에 대량의 용암이 차올라 중앙 봉우리를 완전히 파묻어버린 매끈한 지형입니다.", obs:"[추천 관측 월령: 8일경, 22일경]\n안쪽 바닥에 중앙 봉우리 없이 거울처럼 극도로 매끄러운 질감을 고배율로 확인하세요."},
-            {id:28, name:"히파르쿠스 (Hipparchus)", sig:"침식 크레이터", lat:-5.5, lng:4.8, diam:150, desc:"무수한 우주 파편의 폭격으로 테두리가 심하게 마모된 150km의 고대 크레이터입니다.", obs:"[추천 관측 월령: 7일경, 21일경]\n바로 남쪽의 젊은 알폰수스 크레이터의 뚜렷한 외곽선과 비교하며 풍화 작용을 직접 느껴보세요."},
-            {id:29, name:"아리다에우스 릴 (Ariadaeus Rille)", sig:"선형 지구대", lat:6.4, lng:14.0, diam:250, desc:"달의 지각이 찢어지며 바닥이 주저앉아 생긴 길이 250km의 곧고 선명한 협곡입니다.", obs:"[추천 관측 월령: 6~7일경, 20~21일경]\n히기누스 릴의 굽음과 대조적으로, 자를 대고 그은 듯 직선으로 깊게 파인 골짜기를 관측하세요."},
-            {id:30, name:"실러 (Schiller)", sig:"장방형 충돌구", lat:-51.9, lng:-39.0, diam:180, desc:"두세 개의 소행성이 연달아 비스듬히 떨어져 생긴 길쭉한 고구마 모양 지형입니다.", obs:"[추천 관측 월령: 11일경, 25일경]\n달의 남서쪽 끄트머리에서 동그란 분화구들과 이질적인 '신발 밑창' 실루엣을 찾아보세요."},
-            {id:31, name:"타룬티우스 (Taruntius)", sig:"내부 균열", lat:5.6, lng:46.5, diam:56, desc:"지반 밑 마그마가 솟아오르는 압력 때문에 바닥 표면이 갈라진 형태를 띱니다.", obs:"[추천 관측 월령: 4~5일경, 18~19일경]\n명암경계선 부근에서 고배율을 사용해 둥근 바닥 내부를 가로지르는 미세한 동심원상 균열을 관찰하세요."},
-            {id:32, name:"아라고 돔 (Arago Alpha & Beta)", sig:"화산 돔", lat:6.2, lng:21.4, diam:26, desc:"용암이 조용히 솟아올라 굳으면서 만든 높이 300m 수준의 매우 완만한 방패형 언덕입니다.", obs:"[추천 관측 월령: 5~6일경, 19~20일경]\n경사가 매우 완만하므로 사선광 아래에서만 부드러운 언덕의 입체감이 드러납니다."},
-            {id:33, name:"뱀 모양 능선 (Serpentine Ridge)", sig:"주름 능선", lat:27.3, lng:25.3, diam:155, desc:"맑음의 바다를 횡단하며 뱀이 기어가는 듯 굽이치는 능선. 용암이 식으며 수축할 때 융기했습니다.", obs:"[추천 관측 월령: 5~6일경, 19~20일경]\n저각도 조명이 비칠 때 바다 평면 위로 튀어나온 구불구불한 그림자 선을 체감하세요."},
-            {id:34, name:"죽음의 호수 (Lacus Mortis)", sig:"내부 단층", lat:45.0, lng:27.2, diam:152, desc:"거대한 분화구였으나 용암에 침수되어 평원이 된 지역. 내부에 깊은 릴과 복잡한 단층이 산재합니다.", obs:"[추천 관측 월령: 5~6일경, 19~20일경]\n평평한 어두운 바닥 지형을 가로지르며 길게 난 뚜렷한 선형 구조물을 집중적으로 탐사하세요."},
-            {id:35, name:"트리스네커 릴 (Triesnecker Rilles)", sig:"릴 네트워크", lat:4.3, lng:4.6, diam:215, desc:"중앙만의 크레이터 동쪽에 핏줄이나 나뭇가지처럼 복잡하게 얽혀 퍼져 나가는 대규모 릴 시스템입니다.", obs:"[추천 관측 월령: 7일경, 21일경]\n북에서 남으로 흐르다 여러 갈래로 갈라지는 섬세한 틈새망을 좋은 대기 상태에서 추적해보세요."},
-            {id:36, name:"그리말디 분지 (Grimaldi Basin)", sig:"어두운 바닥", lat:-5.5, lng:-68.3, diam:440, desc:"달 표면에서 가장 어두운 알베도를 가진 지역 중 하나. 고대의 2중 고리 분지 잔해입니다.", obs:"[추천 관측 월령: 13일경~보름, 27일경]\n밝은 고지대와 확연히 대비되는 극도로 짙은 먹물 같은 검은 패치를 서쪽 가장자리 근처에서 확인하세요."},
-            {id:37, name:"베이이 (Bailly)", sig:"거대 분지", lat:-66.5, lng:-69.1, diam:303, desc:"달 앞면에서 보이는 가장 거대한 크레이터급 지형. 남서쪽 극단에 치우쳐 타원으로만 보입니다.", obs:"[추천 관측 월령: 남/서 칭동 우호 시]\n달의 남서쪽 칭동이 우리 쪽으로 기울어질 때만 테두리의 장엄함을 지평선 끝자락에서 가늠해볼 수 있습니다."},
-            {id:38, name:"사빈 & 리터 (Sabine & Ritter)", sig:"쌍둥이 지형", lat:1.7, lng:19.7, diam:30, desc:"고요의 바다 서남쪽에 위치한 쌍둥이 크레이터. 근처에 아폴로 11호 착륙선이 내렸습니다.", obs:"[추천 관측 월령: 6일경, 20일경]\n이 나란한 두 크레이터를 출발점으로 동쪽 평원으로 시선을 옮겨 아폴로 11호의 착륙 위치를 가늠합니다."},
-            {id:39, name:"쉬카르드 (Schickard)", sig:"바닥 줄무늬", lat:-44.3, lng:-55.3, diam:227, desc:"동방의 바다 형성 시 날아온 분출물이 크레이터 바닥을 덮으며 얼룩무늬를 형성했습니다.", obs:"[추천 관측 월령: 12일경, 26일경]\n바닥 평면에 밝은 모래와 어두운 토양이 섞여 붓질을 한 것처럼 남겨진 줄무늬 명암을 살펴보세요."},
-            {id:40, name:"얀센 릴 (Janssen Rille)", sig:"고지대 릴", lat:-45.4, lng:39.3, diam:190, desc:"주로 바다에서 발견되는 릴이 특이하게도 고지대의 얀센 크레이터 바닥을 넓게 굽이쳐 흐릅니다.", obs:"[추천 관측 월령: 4~5일경, 18~19일경]\n훼손된 얀센 분화구 내부를 관통하며 초승달처럼 깊게 곡선을 그리는 협곡을 찾아보세요."},
-            {id:41, name:"베셀 광조 (Bessel Ray)", sig:"기원 불명", lat:21.8, lng:17.9, diam:50, desc:"맑음의 바다 중앙을 남북으로 곧게 가로지르는 미스터리한 긴 흰색 선형 광조입니다.", obs:"[추천 관측 월령: 14일경, 보름]\n태양광이 달을 수직으로 내리쬘 때 바다 한가운데를 자르듯 지나가는 하얀 직선을 발견할 수 있습니다."},
-            {id:42, name:"마리우스 언덕 (Marius Hills)", sig:"화산 군락", lat:12.5, lng:-54.0, diam:125, desc:"폭풍의 대양 서쪽에 300개가 넘는 화산 돔과 구릉이 밀집해 있는 달 최대 화산 중심 구역입니다.", obs:"[추천 관측 월령: 12~13일경, 26~27일경]\n조명 각도가 매우 낮을 때 관측해야, 평원 위로 오돌토돌 솟은 수많은 작은 돔들의 질감이 드러납니다."},
-            {id:43, name:"바르겐틴 (Wargentin)", sig:"용암 고원", lat:-49.6, lng:-60.2, diam:84, desc:"용암이 테두리 밖으로 넘치기 직전까지 꽉 채워진 채 굳어버린 희귀한 역전형 분화구입니다.", obs:"[추천 관측 월령: 12~13일경, 26~27일경]\n일반 분화구가 푹 파인 모양인 것과 달리, 지면 위로 둥글게 솟아오른 원반 고원 형태의 입체감을 비교하세요."},
-            {id:44, name:"메르세니우스 (Mersenius)", sig:"볼록한 바닥", lat:-21.5, lng:-49.2, diam:84, desc:"마그마 굄층의 압력으로 크레이터 바닥이 위로 거품처럼 부풀어 올라 돔 형태를 띠게 되었습니다.", obs:"[추천 관측 월령: 11일경, 25일경]\n내부 테두리 아래로 드리워진 그림자 곡선을 잘 살펴보면, 바닥 중앙이 불룩하게 솟은 것을 느낄 수 있습니다."},
-            {id:45, name:"모로리쿠스 (Maurolycus)", sig:"중첩 충돌", lat:-42.0, lng:14.0, diam:114, desc:"충돌이 너무 잦아 크레이터 안에 또 크레이터가 생기며 지형이 극도로 포화된 지역입니다.", obs:"[추천 관측 월령: 6일경, 20일경]\n수많은 분화구들이 서로의 테두리를 갉아먹고 겹쳐져 있는 거친 달 초기의 충돌 역사를 감상하세요."},
-            {id:46, name:"레기오몬타누스 픽 (Regiomontanus Peak)", sig:"화산성 봉우리", lat:-28.0, lng:-0.6, diam:124, desc:"중심에서 벗어난 한쪽으로 치우쳐 솟은 기이한 봉우리로 화산 활동 기원이라는 가설이 있습니다.", obs:"[추천 관측 월령: 8일경, 22일경]\n높이 1,200m 봉우리 꼭대기에 뚫려 있는 작은 5km 구덩이(화산 칼데라 의심)를 고배율로 찾아보세요."},
-            {id:47, name:"알폰수스 암점 (Alphonsus Dark Spots)", sig:"화산재 분출", lat:-13.7, lng:-3.2, diam:119, desc:"크레이터 바닥 가장자리를 따라 짙게 분포하는 3개의 어두운 반점. 화쇄류 분출 흔적입니다.", obs:"[추천 관측 월령: 8~9일경, 22~23일경]\n밝은 바닥 평면 대비 뚜렷하게 검은 반점들을 찾고, 그 중앙에 뚫린 작은 화산구를 확인해보세요."},
-            {id:48, name:"코시 지역 (Cauchy Region)", sig:"단층과 릴", lat:10.5, lng:38.0, diam:130, desc:"크레이터를 중앙에 두고 깊은 단층과 틈새 릴이 평행하게 달리는 지질 교과서입니다.", obs:"[추천 관측 월령: 4~5일경, 18~19일경]\n철길처럼 나란히 놓인 선 구조를 파악하고, 단층이 만드는 그림자와 릴이 파인 음영을 비교하세요."},
-            {id:49, name:"그루이투이젠 돔 (Gruithuisen Domes)", sig:"규산염 돔", lat:36.3, lng:-40.0, diam:20, desc:"일반 달 현무암과 달리 점성이 높은 규산염 마그마가 밀려 올라와 가파르게 굳어진 산입니다.", obs:"[추천 관측 월령: 11일경, 25일경]\n델타와 감마 두 산이 주변의 완만한 언덕들과 달리 꽤 경사지고 뭉툭하게 솟은 형태를 관찰하세요."},
-            {id:50, name:"케일리 평원 (Cayley Plains)", sig:"밝은 평원", lat:4.0, lng:15.1, diam:14, desc:"험준한 고지대임에도 매우 매끄러운 바닥을 가져 화산재로 오해받았던 미스터리 평원입니다.", obs:"[추천 관측 월령: 6~7일경, 20~21일경]\n프톨레마이오스 동쪽의 거친 고지대들 사이로 이상하리만치 매끄럽게 펼쳐진 지형을 찾아보세요."},
-            {id:51, name:"데비 크레이터 체인 (Davy Crater Chain)", sig:"혜성 파편", lat:-11.1, lng:-6.6, diam:50, desc:"쪼개진 혜성의 파편들이 기관총 쏘듯 표면에 연달아 떨어지며 만든 일렬의 구덩이 사슬입니다.", obs:"[추천 관측 월령: 8~9일경, 22~23일경]\n지름 1~3km의 작은 구멍들이 50km 길이로 선형으로 늘어선 모습을 최대한 고배율로 분해해 내세요."},
-            {id:52, name:"크뤼거 (Crüger)", sig:"용암 칼데라", lat:-16.7, lng:-66.8, diam:45, desc:"내부가 극도로 어두운 현무암질 용암이 고여 있어 고대 거대한 화산 칼데라로 추정되는 곳입니다.", obs:"[추천 관측 월령: 13일경, 27일경]\n주변의 밝고 거친 고지대 지형과 완벽히 대조를 이루는 잉크 같은 짙은 검은색 원형 바닥을 관측하세요."},
-            {id:53, name:"라몽 (Lamont)", sig:"묻힌 분지", lat:4.4, lng:23.7, diam:106, desc:"고요의 바다 수면 아래 깊숙이 파묻힌 고대 충돌 분지의 뼈대로, 수축 시 주름 능선을 남겼습니다.", obs:"[추천 관측 월령: 5일경, 19일경]\n태양광이 스치듯 지나갈 때만, 바다 한가운데 동심원상으로 배열된 희미한 주름들을 포착할 수 있습니다."},
-            {id:54, name:"히팔루스 릴 (Hippalus Rilles)", sig:"동심원 릴", lat:-24.5, lng:-29.0, diam:240, desc:"습기의 바다가 침하할 때 가장자리가 버티지 못하고 찢어지며 생긴 호 모양의 릴입니다.", obs:"[추천 관측 월령: 10~11일경, 24~25일경]\n바다 동쪽 경계를 따라 나란히 곡선을 그리는 2~3가닥의 틈새가 히팔루스를 어떻게 관통하는지 보세요."},
-            {id:55, name:"바코 (Baco)", sig:"매끄러운 내부", lat:-51.0, lng:19.1, diam:69, desc:"울퉁불퉁한 남부 고지대 한가운데서 유난히 분출물 없이 매끄러운 바닥을 유지하는 지형입니다.", obs:"[추천 관측 월령: 6~7일경, 20~21일경]\n주변은 무수한 운석 구덩이로 거친데 반해, 바코 내부만큼은 쓸어낸 듯 평평한 고요함을 감상하세요."},
-            {id:56, name:"남쪽의 바다 (Mare Australe)", sig:"경계 분지", lat:-49.8, lng:84.5, diam:880, desc:"달 앞면과 뒷면 경계에 위치해 지구에서는 절반 이하만 보이는 거대 바다 분지입니다.", obs:"[추천 관측 월령: 남동쪽 칭동 시]\n여러 크레이터 바닥을 채우고 있는 불규칙하고 짙은 검은색의 얼룩 패치들을 지평선 부근에서 엿보세요."},
-            {id:57, name:"라이너 감마 (Reiner Gamma)", sig:"소용돌이", lat:7.7, lng:-59.2, diam:70, desc:"강한 국지적 자기장이 태양풍을 차단해 우주 풍화를 막아 밝게 남은 미스터리 무늬입니다.", obs:"[추천 관측 월령: 13일경~보름, 27일경]\n보름달이 가까워질 무렵, 짙은 회색 바다 위에 밀가루를 뿌린 듯 빛나는 하얀 소용돌이를 관찰하세요."},
-            {id:58, name:"레이타 계곡 (Vallis Rheita)", sig:"이차 충돌구", lat:-42.5, lng:51.5, diam:445, desc:"감로주 분지 형성 시 파편들이 빗자루처럼 긁고 파낸 폭 30km, 길이 500km의 골짜기입니다.", obs:"[추천 관측 월령: 4~5일경, 18~19일경]\n사선광 아래에서 굵고 깊게 파인 거대한 계곡의 질감을 보며 당시 쏟아진 파편의 파괴력을 유추해보세요."},
-            {id:59, name:"실러-주키우스 (Schiller-Zucchius Basin)", sig:"훼손 분지", lat:-56.0, lng:-45.0, diam:335, desc:"운석 충돌로 인해 테두리가 깎이고 덮여 현재는 형체를 알아보기 힘든 뼈대만 남은 다중 고리 분지.", obs:"[추천 관측 월령: 11~12일경, 25~26일경]\n주변 산맥과 융기선들의 미묘한 곡선을 따라가며 직경 335km의 거대한 원형 구조를 상상해 보세요."},
-            {id:60, name:"키스 파이 돔 (Kies Pi)", sig:"전형적 화산", lat:-26.9, lng:-24.2, diam:45, desc:"현무암질 용암이 흘러나와 층을 이루며 굳어진 전형적인 쉴드 화산(방패 화산) 돔 지형입니다.", obs:"[추천 관측 월령: 9~10일경, 23~24일경]\n경사가 완만해 평소엔 보이지 않습니다. 태양 고도가 극단적으로 낮을 때 정상의 캘데라를 확인하세요."},
-            {id:61, name:"뫼스티히 A (Mösting A)", sig:"중심 크레이터", lat:-3.2, lng:-5.2, diam:13, desc:"달 원반 중심에 매우 가깝게 위치한 지름 13km의 밝고 단순한 분화구. 관측의 기준점이 됩니다.", obs:"[추천 관측 월령: 8일경, 22일경, 보름]\n달의 중심을 가늠할 때 사용하세요. 아주 깊은 그릇 모양으로 파여 있어 가장자리가 밝게 빛납니다."},
-            {id:62, name:"륌커 돔 (Mons Rümker)", sig:"화산 복합체", lat:40.8, lng:-58.1, diam:70, desc:"폭풍의 대양 고립된 지역에 수십 개의 화산 돔들이 엉겨 붙어 형성된 거대 화산 복합 융기대입니다.", obs:"[추천 관측 월령: 13일경, 27일경]\n명암경계선 스칠 때, 뇌 표면이나 주름처럼 오돌토돌한 수많은 작은 언덕 무리들을 감상할 수 있습니다."},
-            {id:63, name:"비의 바다 조각 (Imbrium Sculpture)", sig:"방사형 상흔", lat:11.0, lng:12.0, diam:50, desc:"비의 바다 초대형 충돌 여파로 날아간 파편들이 떨어져 긁고 간 깊은 방사형 골짜기들입니다.", obs:"[추천 관측 월령: 7~8일경, 21~22일경]\n지형들이 북서쪽에서 남동쪽 방향으로 일제히 빗질 당한 것처럼 길게 깎여나간 빗살무늬를 봅니다."},
-            {id:64, name:"데카르트 (Descartes)", sig:"아폴로 16호", lat:-11.7, lng:15.7, diam:48, desc:"강력한 자기 이상을 띠는 고지대 평원. 케일리 평원이 화산재가 아닌 충돌 분출물임을 밝혀냈습니다.", obs:"[추천 관측 월령: 6~7일경, 20~21일경]\n거칠고 오래된 달 고지대 지형 중 유난히 밝게 빛나면서도 매끄러운 케일리 평원의 확장을 확인하세요."},
-            {id:65, name:"호르텐시우스 돔 (Hortensius Domes)", sig:"돔 군락", lat:7.6, lng:-27.9, diam:10, desc:"반구형 화산 돔 반 다스가 평원 위에 여드름처럼 옹기종기 무리 지어 솟아 있는 대표적 돔 군락지.", obs:"[추천 관측 월령: 9~10일경, 23~24일경]\n그림자가 길어질 때 6개 이상의 돔을 분별하고 그중 정상의 작은 함몰 구멍을 관측해보세요."},
-            {id:66, name:"해들리 릴 (Hadley Rille)", sig:"아폴로 15호", lat:25.0, lng:3.0, diam:80, desc:"과거 용암 튜브가 무너져 내린 것으로, 아폴로 15호 월면차가 이 계곡 가장자리를 직접 달렸습니다.", obs:"[추천 관측 월령: 7~8일경, 21~22일경]\n아펜니노 산맥 기슭을 구불구불 흐르는 가느다란 협곡을 200배 이상의 고배율로 끝까지 추적해 보세요."},
-            {id:67, name:"프라 마우로 (Fra Mauro Formation)", sig:"분출물 고원", lat:-3.6, lng:-17.5, diam:100, desc:"비의 바다 거대 충돌 분출물이 원래 있던 크레이터들을 덮어버리고 거칠게 융기한 고원입니다.", obs:"[추천 관측 월령: 8~9일경, 22~23일경]\n사선 조명에서 모래사장에 파묻힌 듯 테두리만 남은 분화구들과 빗자루로 쓴 듯한 지형을 볼 수 있습니다."},
-            {id:68, name:"플램스티드 P (Flamsteed P)", sig:"용암 링", lat:-3.0, lng:-44.0, diam:112, desc:"대규모 용암 폭발로 지형이 수몰되고 현재는 꼭대기 산봉우리들만 점선 고리처럼 수면 위로 남았습니다.", obs:"[추천 관측 월령: 11~12일경, 25~26일경]\n완벽한 원을 그리는 불연속적인 융기 지형 안의 용암 바다가 주변 평원과 어떻게 연결되는지 보세요."},
-            {id:69, name:"코페르니쿠스 2차 (Copernicus Secondary Craters)", sig:"파편 낙하", lat:19.6, lng:-19.1, diam:4, desc:"코페르니쿠스 충돌 파편이 주변에 무더기로 떨어지며 만든 수많은 2차 충돌 구덩이들.", obs:"[추천 관측 월령: 9~10일경, 23~24일경]\n피테아스 크레이터 근처의 백색 광조 선을 따라 흩어져 있는 자잘한 구덩이 체인들을 짚어가세요."},
-            {id:70, name:"훔볼트 분지 (Humboldtianum Basin)", sig:"가장자리 바다", lat:57.0, lng:80.0, diam:650, desc:"북동쪽 지평선 너머로 아슬아슬하게 걸쳐 있는 거대 다중 고리 형태의 충돌 분지입니다.", obs:"[추천 관측 월령: 동북 칭동 최대 시]\n가장자리 곡선을 따라 평행하게 놓인 어두운 바다 무늬와 층층이 쌓인 산맥 고리를 간신히 포착해냅니다."},
-            {id:71, name:"술피키우스 갈루스 (Sulpicius Gallus)", sig:"화산재", lat:19.6, lng:11.6, diam:12, desc:"수십억 년 전 화산 폭발 시 뿜어진 검은 유리질 화산재가 지표면에 두껍게 퇴적된 구역입니다.", obs:"[추천 관측 월령: 7~8일경, 21~22일경, 보름]\n주변 현무암 바다보다 반사율이 낮아 유난히 검은색을 띠는 길쭉한 얼룩 패치(DMD)를 찾아보세요."},
-            {id:72, name:"아틀라스 암점 (Atlas Dark-Halo Craters)", sig:"바닥 화산구", lat:46.7, lng:44.4, diam:87, desc:"크레이터 바닥 북쪽과 남쪽 끝단에 잉크를 떨어뜨린 것처럼 자리 잡은 화쇄류 분출 흔적입니다.", obs:"[추천 관측 월령: 5~6일경, 19~20일경]\n바닥의 뚜렷한 검은 반점 두 개를 찾고, 반점 정중앙에 뚫린 2~3km 직경의 벤트 구멍 분해에 도전하세요."},
-            {id:73, name:"스미스의 바다 (Mare Smythii)", sig:"동쪽 경계", lat:-2.0, lng:87.0, diam:740, desc:"지구에서 간신히 관측 가능한 동쪽 적도 너머의 원형 용암 바다.", obs:"[추천 관측 월령: 동쪽 칭동 최대 시]\n우측 지평선 가장자리에 거대한 어두운 얼룩 덩어리가 아슬아슬하게 살짝 넘어오는 모습을 관측하세요."},
-            {id:74, name:"코페르니쿠스 H (Copernicus H)", sig:"암색 후광", lat:6.9, lng:-18.3, diam:5, desc:"크레이터 폭발 시 얕은 지각 밑의 검은 용암층을 파내어 흰색 광조 대신 검은 물질을 뿜어냈습니다.", obs:"[추천 관측 월령: 9~10일경, 23~24일경]\n하얀 광조 도화지 위에 검은 잉크가 번진 것처럼 둥글게 짙은 후광을 두른 작고 검은 구멍을 발견하세요."},
-            {id:75, name:"프톨레마이오스 B (Ptolemaeus B)", sig:"유령 크레이터", lat:-8.0, lng:-0.8, diam:16, desc:"용암과 분출물이 바닥을 완전히 덮어버리면서 크레이터 테두리 능선만이 얕게 살아남은 지형.", obs:"[추천 관측 월령: 7~8일경, 21~22일경]\n매우 고도가 낮은 사선광에서 매끄러운 평원 위에 숨겨진 직경 16km의 희미한 링 윤곽을 포착하세요."},
-            {id:76, name:"W. 본드 (W. Bond)", sig:"거대 사각형", lat:65.3, lng:3.7, diam:158, desc:"달 북극 근처. 거대 파편 폭격으로 벽이 허물어져 다이아몬드나 불규칙한 사각형 모양이 되었습니다.", obs:"[추천 관측 월령: 7~8일경, 21~22일경]\n일반 크레이터와 달리 평평하고 거대한 비정형 직사각형 윤곽과 모서리를 북극의 낮은 빛에서 찾으세요."},
-            {id:77, name:"시르살리스 릴 (Sirsalis Rille)", sig:"최장 선형 릴", lat:-15.7, lng:-61.7, diam:425, desc:"폭풍의 대양 경계와 평행하게 400km 이상 끊김 없이 시원하게 가로지르는 달 최장의 지각 균열입니다.", obs:"[추천 관측 월령: 13일경, 27일경]\n산맥과 다른 크레이터 테두리까지 가차 없이 찢으며 일직선으로 뻗어나가는 거대 칼자국을 훑어보세요."},
-            {id:78, name:"람베르트 R (Lambert R)", sig:"용암 링", lat:23.8, lng:-20.6, diam:54, desc:"현무암 바다 아래 완전히 파묻혀 과거 산봉우리 꼭대기 부분만 수면 위로 점선처럼 드러난 링.", obs:"[추천 관측 월령: 9~10일경, 23~24일경]\n일출이나 일몰 시 태양 고도가 아주 낮을 때만 점선처럼 희미하게 이어지는 원형 돌출부를 찾으세요."},
-            {id:79, name:"더위의 만 (Sinus Aestuum)", sig:"검은 맨틀", lat:12.0, lng:-3.5, diam:90, desc:"화산재가 넓은 구역을 두껍게 뒤덮고 있어 주변의 일반 바다들보다 훨씬 짙은 어둠을 띱니다.", obs:"[추천 관측 월령: 보름 전후]\n밝은 아펜니노 산맥 바로 아래 검은 숯가루가 광범위하게 뿌려진 듯한 지역의 알베도 대조를 보세요."},
-            {id:80, name:"동방의 바다 (Orientale Basin)", sig:"다중 고리", lat:-19.0, lng:-95.0, diam:930, desc:"달 형성 역사 마지막에 형성되어 3중 산맥 고리를 고스란히 보존하고 있는 태양계 으뜸 분지.", obs:"[추천 관측 월령: 서쪽 칭동 최대 시]\n서쪽 가장자리 너머로 거대한 평행 산맥 고리들의 외곽 곡선을 아주 살짝 엿볼 수 있습니다."},
-            {id:81, name:"헤시오두스 A (Hesiodus A)", sig:"이중 동심원", lat:-30.1, lng:-17.0, diam:15, desc:"크레이터 바닥 한가운데 완벽한 원형 테두리가 하나 더 존재하는 매우 특이한 이중 동심원 크레이터.", obs:"[추천 관측 월령: 8~9일경, 22~23일경]\n대기 안정도가 뛰어날 때 고배율 렌즈를 사용하여 중앙의 정밀한 이중 링(양궁 과녁 모양)을 조준해보세요."},
-            {id:82, name:"린네 (Linné)", sig:"밝은 점", lat:27.7, lng:11.8, diam:2.4, desc:"과거에 분화구가 구름으로 변했다는 시상 착오로 인해 달이 살아있다는 논란을 빚었던 작은 크레이터.", obs:"[추천 관측 월령: 8일경~보름, 22일경]\n어두운 맑음의 바다 위에서 홀로 유난히 하얗고 쨍하게 반짝이는 작은 점을 중간 배율로 쉽게 찾을 수 있습니다."},
-            {id:83, name:"플라톤 소구덩이 (Plato Craterlets)", sig:"분해능 테스트", lat:51.6, lng:-9.4, diam:101, desc:"검은 바닥 위에 놓인 지름 1~2.5km 내외의 소구덩이 4~5개. 장비 분해능 챌린지 타겟입니다.", obs:"[추천 관측 월령: 8~9일경, 22~23일경]\n대구경 망원경으로 기류가 멈춘 최상의 날씨에서 바늘구멍 같은 구덩이들을 몇 개나 구별해낼지 테스트하세요."},
-            {id:84, name:"피타투스 (Pitatus)", sig:"동심원 균열", lat:-29.8, lng:-13.5, diam:97, desc:"마그마 압력으로 바닥이 융기하며 가장자리를 따라 둥글게 원형 균열(릴)이 파인 지형입니다.", obs:"[추천 관측 월령: 8~9일경, 22~23일경]\n용암 바닥과 바깥 테두리 산맥이 만나는 경계를 따라 깊게 갈라진 틈새선을 그림자 각도를 통해 관찰하세요."},
-            {id:85, name:"랑그레누스 광조 (Langrenus Rays)", sig:"노화된 광조", lat:-8.9, lng:60.9, diam:132, desc:"방사형 광조가 우주 풍화(Space Weathering)에 노출되며 원래의 밝기를 잃고 흐릿하게 늙어가고 있습니다.", obs:"[추천 관측 월령: 보름 전후]\n티코 크레이터가 발산하는 눈이 시리게 밝은 젊은 광조와 비교하여 상대적으로 희미하고 퍼진 노화를 느껴보세요."},
-            {id:86, name:"프린츠 릴 (Prinz Rilles)", sig:"복잡한 릴", lat:27.0, lng:-43.0, diam:46, desc:"파묻힌 프린츠 크레이터 주변에 거미줄처럼 불규칙하게 얽히고설킨 대규모 화산 수로 네트워크.", obs:"[추천 관측 월령: 12~13일경, 26~27일경]\n거대한 슈뢰터 계곡 옆에서, 더 가늘고 불규칙하게 뻗어 나가는 섬세한 릴들의 발원지를 고배율로 추적하세요."},
-            {id:87, name:"훔볼트 (Humboldt)", sig:"균열된 중앙", lat:-27.0, lng:80.9, diam:207, desc:"거대 중앙 봉우리 구조와, 거북이 등껍질처럼 심하게 융기하고 방사형으로 갈라진 바닥을 가졌습니다.", obs:"[추천 관측 월령: 동남 칭동 최대 시]\n지평선 너머로 나타나면 험준한 바닥 융기와 이를 가로지르는 뚜렷한 방사형 릴을 확인하세요."},
-            {id:88, name:"피어리 (Peary)", sig:"영구 음영", lat:88.6, lng:33.0, diam:74, desc:"달 북극점 바로 옆에 위치해 햇빛이 얕게 스치며, 바닥에는 영구 음영 지역이 있는 극한의 지형입니다.", obs:"[추천 관측 월령: 북쪽 칭동 시]\n북쪽 끝 극한을 조준하여 어둠 속에서 햇빛을 받아 반짝이는 가장자리 산봉우리 실루엣만 감상하세요."},
-            {id:89, name:"발렌타인 돔 (Valentine Dome)", sig:"하트 화산", lat:30.5, lng:10.1, diam:30, desc:"맑음의 바다 위에 높이 120m로 아주 완만하게 퍼져 융기한 쉴드 화산 돔. 하트 모양을 닮았습니다.", obs:"[추천 관측 월령: 7일경, 21일경]\n경사가 완만해 태양 고도가 낮은 명암경계선 근처일 때 단 몇 시간 동안만 하트 모양 그림자가 드러납니다."},
-            {id:90, name:"아폴로 11호 (Armstrong, Aldrin, & Collins)", sig:"소형 크레이터", lat:1.3, lng:23.7, diam:3, desc:"고요의 기지 근처에 위치한 세 명의 아폴로 11호 우주비행사 이름을 딴 작은 분화구.", obs:"[추천 관측 월령: 6~7일경, 20~21일경]\n사빈 크레이터를 이정표로 동쪽 평원으로 이동해 150배 이상 고배율로 작은 점 세 개를 탐색해보세요."},
-            {id:91, name:"데 가스파리스 릴 (De Gasparis Rilles)", sig:"교차 릴", lat:-25.9, lng:-50.7, diam:30, desc:"서로 다른 방향의 선형 릴들이 X자, 십자 모양으로 무자비하게 교차하며 관통하는 단층대.", obs:"[추천 관측 월령: 12~13일경, 26~27일경]\n야수가 발톱으로 할퀴고 지나간 것처럼 크레이터 바닥과 테두리를 조각내는 선들을 고배율로 분해하세요."},
-            {id:92, name:"길덴 계곡 (Gyldén Valley)", sig:"거대 파편 흔적", lat:-5.1, lng:0.7, diam:47, desc:"비의 바다 거대 충돌로 튀어오른 암석들이 남동쪽으로 날아가다 지면을 긁어 만든 넓은 골짜기.", obs:"[추천 관측 월령: 7~8일경, 21~22일경]\n프톨레마이오스 위쪽에서 지형들이 북서에서 남동 방향으로 일제히 깎이고 뭉개진 상흔을 관찰하세요."},
-            {id:93, name:"디오니시우스 광조 (Dionysius Rays)", sig:"검은 광조", lat:2.8, lng:17.3, diam:18, desc:"충돌 시 일반적 흰색이 아닌 하부의 어두운 현무암 물질층을 파내어 검은 파편을 뿜어낸 이례적 광조.", obs:"[추천 관측 월령: 보름 전후]\n하얀 고지대를 배경으로 크레이터 양옆으로 먹물이 뻗어 나간 듯한 토끼 귀 모양의 어두운 띠를 대조해보세요."},
-            {id:94, name:"드리가스키 (Drygalski)", sig:"남극 가장자리", lat:-79.3, lng:-84.9, diam:162, desc:"남극-에이킨 분지 외곽의 높은 산맥을 구성하는 거대한 장엄함을 지닌 고대 다중 고리 크레이터.", obs:"[추천 관측 월령: 남/서 칭동 최대 시]\n가장자리 끝에서 거대한 산봉우리들이 지평선 위로 우뚝 솟아 요철을 이루는 실루엣을 관찰할 수 있습니다."},
-            {id:95, name:"폭풍의 대양 (Oceanus Procellarum)", sig:"최대 바다", lat:23.0, lng:-15.0, diam:3200, desc:"단일 분지가 아닌 여러 용암 분출이 합쳐져 달 앞면의 서쪽 3분의 1을 덮고 있는 가장 광활한 화산암 평원.", obs:"[추천 관측 월령: 전 월령]\n맨눈이나 소형 쌍안경만으로 달 앞면 왼쪽을 덮어버린 거대한 바다의 압도적 크기를 한눈에 체감하세요.", img:"https://upload.wikimedia.org/wikipedia/commons/e/ee/Oceanus_Procellarum_%28LRO%29.png"},
-            {id:96, name:"라이프니츠 산맥 (Leibnitz Mountains)", sig:"최고도 산맥", lat:-85.0, lng:30.0, diam:300, desc:"달 뒷면 남극-에이킨 분지의 외곽 테두 산맥으로 수 km 높이에 달하는 달 최고 고도 지역입니다.", obs:"[추천 관측 월령: 남쪽 칭동 시]\n남극 부근 지평선을 톱니바퀴나 톱날처럼 삐죽삐죽하게 돌출시키는 산맥의 웅장한 실루엣을 보세요.", img:"https://upload.wikimedia.org/wikipedia/commons/0/05/South_Pole-Aitken_basin.jpg"},
-            {id:97, name:"인기라미 계곡 (Inghirami Valley)", sig:"쓸린 계곡", lat:-44.0, lng:-73.0, diam:140, desc:"동방의 바다 형성 시 뿜어진 수억 톤의 용융 파편들이 거대한 빗자루처럼 지면을 휩쓸고 파낸 방사형 계곡.", obs:"[추천 관측 월령: 13~14일경, 27~28일경]\n크레이터 형태를 무시하고 남서쪽을 향해 표면을 굵직하게 파놓은 강력하고 일관된 선형 계곡을 관찰하세요."},
-            {id:98, name:"비의 바다 용암층 (Imbrium Lava Flows)", sig:"용암 경계면", lat:32.8, lng:-22.0, diam:200, desc:"시기와 성분이 다른 여러 번의 대규모 용암 쓰나미가 겹겹이 굳으면서 형성된 10~30m 높이의 단층 띠.", obs:"[추천 관측 월령: 9일경, 23일경]\n사선광일 때 바다 중앙 평원에서 물결 모양으로 겹쳐 쌓인 얕은 용암 단차를 고배율로 기적처럼 잡아내보세요."},
-            {id:99, name:"이나 (Ina)", sig:"가스 배출구", lat:18.6, lng:5.3, diam:3, desc:"불과 수천만 년 전까지 화산 가스가 배출된 흔적으로 추정되는 미스터리한 D자형 최신 지질 구조.", obs:"[추천 관측 월령: 6~7일경, 20~21일경]\n너무 작아 식별이 거의 불가능하나, 대기가 맑은 날 독특한 거품 모양 지형이 있는 위치를 조준하는 챌린지입니다."},
-            {id:100, name:"경계의 바다 소용돌이 (Mare Marginis Swirls)", sig:"자기장 무늬", lat:18.5, lng:88.0, diam:100, desc:"국지적 자기장 우산 덕분에 태양풍 우주 풍화를 피하여 원래의 밝은 흙색을 기묘하게 유지한 소용돌이.", obs:"[추천 관측 월령: 동쪽 칭동 최대 시]\n지평선 부근 어두운 평원 위로 뜬구름처럼 퍼진 하얀 얼룩 반점들을 찾는 최고 난이도 관측 목표입니다."}
+            {id:1, name:"달 (Moon)", sig:"지구의 위성", sig_en:"Earth's Satellite", lat:4, lng:-4, diam:0, desc:"우리의 영원한 동반자. 달 표면의 어두운 바다와 밝은 고지대가 이루는 무늬는 맨눈으로도 선명하게 확인할 수 있습니다.", desc_en:"Our eternal companion. The pattern of dark maria and bright highlands is clearly visible to the naked eye.", obs:"[추천 관측 월령: 전 월령]\n맨눈으로 토끼 무늬를 상상해보거나, 7x50 쌍안경을 통해 달 표면에 무수히 흩어진 충돌구들을 감상해보세요.", obs_en:"[Recommended Moon Age: All phases]\nImagine patterns with the naked eye, or use 7x50 binoculars to admire countless impact craters.", img:"https://upload.wikimedia.org/wikipedia/commons/e/e1/FullMoon2010.jpg"},
+            {id:2, name:"지구광 (Earthshine)", sig:"지구 반사광", sig_en:"Earth's Reflection", lat:-4, lng:4, diam:0, desc:"지구의 바다와 구름에서 반사된 태양빛이 다시 달의 어두운 그림자 부분을 비추는 환상적인 현상입니다.", desc_en:"A fantastic phenomenon where sunlight reflected from Earth illuminates the dark shadow of the moon.", obs:"[추천 관측 월령: 2~4일경, 25~28일경]\n초승달이나 그믐달 시기에 달의 어두운 면이 신비로운 푸른 빛을 띠는 것을 쌍안경으로 관찰할 수 있습니다.", obs_en:"[Recommended Moon Age: 2~4 days, 25~28 days]\nObserve the mysterious blue tint on the dark side of a crescent moon using binoculars.", img:"https://upload.wikimedia.org/wikipedia/commons/5/5d/Aschgraues.Mondlicht.P1162513.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=original"},
+            {id:3, name:"바다/고지대 이분법 (Mare/Highland Dichotomy)", sig:"조성 차이", sig_en:"Composition Difference", lat:4, lng:4, diam:0, desc:"앞면은 주로 현무암질 '바다'로 덮여 있는 반면, 뒷면과 고지대는 밝은 사장암으로 이루어져 극명한 대비를 보여줍니다.", desc_en:"The near side is mostly covered with basaltic maria, while the far side and highlands are bright anorthosite, showing a stark contrast.", obs:"[추천 관측 월령: 10~15일경]\n저배율 망원경으로 밝고 거친 고지대와 매끄럽고 어두운 바다 지형의 경계를 따라 훑으며 관찰하세요.", obs_en:"[Recommended Moon Age: 10~15 days]\nScan the boundary between the rugged bright highlands and the smooth dark maria with low power.", img:"https://upload.wikimedia.org/wikipedia/commons/e/e1/FullMoon2010.jpg"},
+            {id:4, name:"아펜니노 산맥 (Apennines)", sig:"분지 테두리", sig_en:"Basin Rim", lat:18.9, lng:-3.7, diam:70, desc:"비의 바다 형성 시 융기된 산맥. 최고 높이가 5,000m에 달하며 달에서 가장 웅장하고 높은 산맥입니다.", desc_en:"A mountain range uplifted during Mare Imbrium's formation. Reaching 5,000m, it is the moon's most magnificent range.", obs:"[추천 관측 월령: 7~8일경, 21~22일경]\n명암경계선이 산맥에 걸칠 때 관찰하면 험준한 봉우리들이 던지는 예리하고 긴 그림자를 볼 수 있습니다.", obs_en:"[Recommended Moon Age: 7~8 days, 21~22 days]\nObserve when the terminator crosses the mountains to see long, sharp shadows cast by the rugged peaks."},
+            {id:5, name:"코페르니쿠스 (Copernicus)", sig:"복합 크레이터", sig_en:"Complex Crater", lat:9.7, lng:-20.1, diam:93, desc:"다중 중앙 봉우리와 테라스(계단식) 구조의 안쪽 벽면이 돋보이는 '달의 군주'입니다.", desc_en:"The 'Monarch of the Moon' featuring multiple central peaks and terraced inner walls.", obs:"[추천 관측 월령: 9~10일경, 23~24일경]\n내부의 중앙 봉우리와 다층 계단식 벽을 고배율로 관측하세요. 보름달에는 주변의 광조를 확인할 수 있습니다.", obs_en:"[Recommended Moon Age: 9~10 days, 23~24 days]\nObserve the central peaks and terraced walls at high power. Notice its bright rays during the full moon."},
+            {id:6, name:"티코 (Tycho)", sig:"광조 크레이터", sig_en:"Rayed Crater", lat:-43.3, lng:-11.1, diam:85, desc:"약 1억 전 형성된 젊은 크레이터로, 달 전역으로 수천 km나 뻗어나가는 눈부신 광조 체계의 중심입니다.", desc_en:"A young crater formed ~100M years ago, the center of a brilliant ray system stretching thousands of km.", obs:"[추천 관측 월령: 9일경~보름, 23일경]\n달 표면을 가로지르는 광조를 저배율에서 확인하고, 중심의 날카로운 봉우리를 고배율로 탐사하세요.", obs_en:"[Recommended Moon Age: 9 days~Full, 23 days]\nTrace the expansive rays at low power, and inspect the sharp central peak at high magnification."},
+            {id:7, name:"알타이 절벽 (Altai Scarp)", sig:"분지 단층", sig_en:"Basin Fault", lat:-24.3, lng:22.6, diam:425, desc:"거대 충돌로 인해 지각이 무너져 내리며 형성된 400km 길이의 아크형 절벽 지형입니다.", desc_en:"A 400km arc-shaped scarp formed when the crust collapsed from a giant impact.", obs:"[추천 관측 월령: 5~6일경, 19~20일경]\n사선광이 비출 때, 초승달 모양으로 둥글게 굽어진 긴 절벽 단층의 선명한 그림자를 찾아보세요.", obs_en:"[Recommended Moon Age: 5~6 days, 19~20 days]\nUnder oblique lighting, look for the distinct shadow of this long, crescent-shaped fault line."},
+            {id:8, name:"테오필루스 그룹 (Theophilus, Cyrillus, Catharina)", sig:"침식 단계", sig_en:"Erosion Stages", lat:-13.2, lng:24.0, diam:100, desc:"서로 다른 시기에 형성된 테오필루스, 키릴루스, 카타리나가 나란히 위치하여 침식 단계를 뚜렷이 보여줍니다.", desc_en:"Three craters side-by-side formed at different times, clearly displaying the stages of crater erosion.", obs:"[추천 관측 월령: 5일경, 19일경]\n가장 날카로운 테오필루스부터 둥글게 깎인 카타리나까지 분화구의 노화 3단계를 비교하며 관측하세요.", obs_en:"[Recommended Moon Age: 5 days, 19 days]\nCompare the three stages of aging, from the sharpest Theophilus to the heavily degraded Catharina."},
+            {id:9, name:"클라비우스 (Clavius)", sig:"거대 크레이터", sig_en:"Giant Crater", lat:-58.8, lng:-14.1, diam:225, desc:"지름 225km에 달하는 남부 고지대의 거대 분화구. 내부에 크기가 점차 줄어드는 작은 분화구들이 배열되어 있습니다.", desc_en:"A massive 225km crater in the southern highlands. It hosts a curving chain of decreasingly smaller craterlets.", obs:"[추천 관측 월령: 8~9일경, 22~23일경]\n망원경 분해능 테스트용입니다. 내부의 둥근 구덩이들을 크기순으로 어디까지 세어낼 수 있는지 도전하세요.", obs_en:"[Recommended Moon Age: 8~9 days, 22~23 days]\nA telescope resolution test. Challenge yourself to resolve as many of the internal craterlets as possible."},
+            {id:10, name:"위난의 바다 (Mare Crisium)", sig:"독립 분지", sig_en:"Isolated Basin", lat:18.0, lng:59.0, diam:540, desc:"달 앞면 우측 가장자리에 홀로 동떨어져 있는 완벽한 원형의 바다입니다.", desc_en:"A perfectly circular mare standing isolated near the eastern limb of the moon's near side.", obs:"[추천 관측 월령: 3~4일경, 17~18일경]\n초승달 시기 가장 먼저 관측됩니다. 바다 안쪽에 동심원을 그리는 얇은 주름 능선을 탐사하세요.", obs_en:"[Recommended Moon Age: 3~4 days, 17~18 days]\nFirst visible during the crescent phase. Explore the thin wrinkle ridges forming concentric circles inside."},
+            {id:11, name:"아리스타르쿠스 (Aristarchus)", sig:"가장 밝은 크레이터", sig_en:"Brightest Crater", lat:23.7, lng:-47.4, diam:40, desc:"반사율이 유난히 높아 달에서 가장 눈부시게 빛납니다. 주변은 화산재로 덮여있습니다.", desc_en:"The most dazzlingly bright crater on the moon due to its high albedo. Surrounded by volcanic ash.", obs:"[추천 관측 월령: 11~13일경, 25~27일경]\n보름달 시기에 너무 밝아 시야를 방해할 수 있으므로 달 필터(ND 필터)를 사용하여 관측하세요.", obs_en:"[Recommended Moon Age: 11~13 days, 25~27 days]\nIt can be blindingly bright near the full moon, so consider using a Moon (ND) filter for comfortable observation."},
+            {id:12, name:"프로클루스 (Proclus)", sig:"비대칭 광조", sig_en:"Asymmetric Rays", lat:16.1, lng:46.8, diam:28, desc:"위난의 바다 근처에 위치하며, 운석이 낮은 각도로 충돌해 부채꼴 모양의 비대칭 광조를 형성했습니다.", desc_en:"A crater near Mare Crisium with an asymmetric, fan-shaped ray system caused by a low-angle impact.", obs:"[추천 관측 월령: 4일경, 18일경, 보름]\n보름달 시기에 프로클루스를 중심으로 한쪽으로만 넓게 퍼져나가는 빛줄기를 확인하세요.", obs_en:"[Recommended Moon Age: 4 days, 18 days, Full]\nDuring the full moon, notice how the bright rays fan out widely in only certain directions."},
+            {id:13, name:"가생디 (Gassendi)", sig:"갈라진 크레이터", sig_en:"Fractured Crater", lat:-17.5, lng:-40.1, diam:101, desc:"습기의 바다 북쪽 가장자리에 있으며, 마그마의 압력으로 바닥이 부풀어올라 수많은 균열이 생겼습니다.", desc_en:"Located on the northern edge of Mare Humorum, its floor bulged from magma pressure, creating numerous fractures.", obs:"[추천 관측 월령: 10~11일경, 24~25일경]\n명암경계선 근처일 때, 크레이터 바닥의 거미줄 같은 릴(틈새) 네트워크를 고배율로 추적하세요.", obs_en:"[Recommended Moon Age: 10~11 days, 24~25 days]\nWhen near the terminator, trace the spiderweb-like rille network across the crater floor at high power."},
+            {id:14, name:"무지개 만 (Sinus Iridum)", sig:"반원형 만", sig_en:"Semicircular Bay", lat:45.0, lng:-32.0, diam:260, desc:"완전한 크레이터였으나 한쪽 벽이 무너져 비의 바다로 녹아든 반원형 지형. 쥐라 산맥이 감싸고 있습니다.", desc_en:"A former crater whose wall collapsed into Mare Imbrium, forming a semicircular bay bordered by the Jura Mountains.", obs:"[추천 관측 월령: 10~11일경, 24~25일경]\n해가 뜰 무렵, 쥐라 산맥 봉우리들이 먼저 빛을 받아 반원형으로 빛나는 '골든 핸들' 효과가 장관입니다.", obs_en:"[Recommended Moon Age: 10~11 days, 24~25 days]\nCatch the 'Golden Handle' effect at sunrise when the Jura Mountains' peaks catch the light first."},
+            {id:15, name:"직선 절벽 (Rupes Recta)", sig:"유명한 단층", sig_en:"Straight Wall Fault", lat:-21.8, lng:-7.8, diam:110, desc:"구름의 바다 서쪽에 자리한 달에서 가장 뚜렷하게 관측되는 직선 단층입니다. 실제로는 완만한 경사입니다.", desc_en:"The most prominent straight fault on the moon, located in Mare Nubium. It is actually a gentle slope.", obs:"[추천 관측 월령: 8일경, 22일경]\n상현달 시기에는 길고 검은 선으로 보이며, 하현달 시기에는 반사되어 하얀 선으로 반전되어 보입니다.", obs_en:"[Recommended Moon Age: 8 days, 22 days]\nIt appears as a dark line during the first quarter and reverses into a bright white line during the last quarter."},
+            {id:16, name:"페타비우스 (Petavius)", sig:"복합 릴", sig_en:"Complex Rille", lat:-25.1, lng:60.4, diam:177, desc:"바닥 중앙 봉우리에서 뻗어 나와 벽면까지 가로지르는 매우 깊고 거대한 균열이 특징입니다.", desc_en:"Features a massive, deep fracture cutting from the central peak all the way across the floor to the wall.", obs:"[추천 관측 월령: 3~4일경, 17~18일경]\n태양빛이 얕게 비출 때 바닥의 갈라진 거대한 틈새를 150배 이상의 고배율로 들여다보세요.", obs_en:"[Recommended Moon Age: 3~4 days, 17~18 days]\nUnder grazing light, use 150x+ magnification to peer into the massive gorge tearing through the floor."},
+            {id:17, name:"슈뢰터 계곡 (Schröter's Valley)", sig:"거대 사행 릴", sig_en:"Giant Sinuous Rille", lat:26.2, lng:-50.8, diam:168, desc:"아리스타르쿠스 고원에 뱀처럼 파인 달 최대의 용암 수로. 폭 10km의 거대한 계곡입니다.", desc_en:"The moon's largest sinuous lava channel, snaking through the Aristarchus Plateau. It is up to 10km wide.", obs:"[추천 관측 월령: 12~13일경, 26~27일경]\n'코브라 머리' 모양의 입구를 찾은 뒤, 끝을 향해 구불구불 흐르는 계곡의 자취를 따라가보세요.", obs_en:"[Recommended Moon Age: 12~13 days, 26~27 days]\nFind the 'Cobra Head' source, then trace the meandering path of the valley to its fading end."},
+            {id:18, name:"맑음의 바다 연변 (Mare Serenitatis Dark Edges)", sig:"성분 차이", sig_en:"Composition Edges", lat:17.8, lng:23.0, diam:100, desc:"중심부의 젊은 용암과 주변부의 오래된 용암의 티타늄 성분 차이로 가장자리가 더 어둡습니다.", desc_en:"The edges are darker due to the titanium composition difference between older peripheral lava and younger central lava.", obs:"[추천 관측 월령: 보름 전후]\n바다 가장자리를 따라 짙은 테두리가 형성된 모습을 관찰하세요.", obs_en:"[Recommended Moon Age: Around Full Moon]\nObserve the distinct dark boundary outlining the outer rim of the mare against the lighter center."},
+            {id:19, name:"알프스 계곡 (Alpine Valley)", sig:"달의 지구대", sig_en:"Lunar Graben", lat:49.0, lng:3.0, diam:165, desc:"알프스 산맥을 166km에 걸쳐 직선으로 두 동강 낸 거대한 골짜기. 바닥 중심에 가느다란 릴이 있습니다.", desc_en:"A 166km straight valley slicing through the Lunar Alps, featuring a very narrow rille running down its center.", obs:"[추천 관측 월령: 7~8일경, 21~22일경]\n계곡 바닥 한가운데를 가로지르는 폭 1km 미만의 릴을 분해해 내는 것은 대구경 망원경의 챌린지입니다.", obs_en:"[Recommended Moon Age: 7~8 days, 21~22 days]\nResolving the <1km wide rille splitting the valley floor is a classic challenge for large telescopes."},
+            {id:20, name:"포시도니우스 (Posidonius)", sig:"훼손된 크레이터", sig_en:"Fractured Crater", lat:31.8, lng:29.9, diam:95, desc:"마그마가 내부를 채우면서 바닥이 융기하고, 벽면이 무너져 복잡한 주름과 틈새가 형성되었습니다.", desc_en:"Magma flooded the interior, uplifting the floor and causing walls to collapse into a complex maze of rilles.", obs:"[추천 관측 월령: 5~6일경, 19~20일경]\n바닥에 굽이치는 가느다란 주름 능선들과 갈라진 릴 구조를 사선광에서 주의 깊게 확인하세요.", obs_en:"[Recommended Moon Age: 5~6 days, 19~20 days]\nUnder oblique light, carefully spot the delicate wrinkle ridges and fractured rille network on the floor."},
+            {id:21, name:"프라카스토리우스 (Fracastorius)", sig:"침수된 크레이터", sig_en:"Flooded Crater", lat:-21.5, lng:33.2, diam:124, desc:"북쪽 테두리가 용암에 완전히 녹아내려 감로주의 바다와 하나가 된 반쪽 크레이터입니다.", desc_en:"A half-crater whose northern rim melted away into Mare Nectaris, flooding its interior entirely.", obs:"[추천 관측 월령: 5~6일경, 19~20일경]\n테두리가 허물어져 평평한 바다로 매끄럽게 이어지는 개방형 구조를 확인하세요.", obs_en:"[Recommended Moon Age: 5~6 days, 19~20 days]\nNote the wide-open breached rim where the crater floor seamlessly merges into the flat mare."},
+            {id:22, name:"아리스타르쿠스 고원 (Aristarchus Plateau)", sig:"화산 퇴적", sig_en:"Volcanic Ash", lat:26.0, lng:-51.0, diam:150, desc:"거대한 마름모꼴 화산 고원. 주변 평원보다 최대 2km 높으며 표면이 노란 화산재로 덮여 있습니다.", desc_en:"A large diamond-shaped volcanic plateau up to 2km higher than surroundings, blanketed in yellowish ash.", obs:"[추천 관측 월령: 12~13일경, 26~27일경]\n일반 바다의 질감과 대비되는 고원의 약간 누런 톤을 컬러 필터를 사용해 비교 관측해 보세요.", obs_en:"[Recommended Moon Age: 12~13 days, 26~27 days]\nUse a color filter to compare the plateau's slightly yellowish tint against the surrounding gray mare."},
+            {id:23, name:"피코 산 (Pico)", sig:"고립된 봉우리", sig_en:"Isolated Peak", lat:45.7, lng:-8.9, diam:25, desc:"비의 바다 분지 내부 고리의 파편으로, 평원 위에 높이 2.4km로 외롭게 솟아오른 산봉우리입니다.", desc_en:"An isolated 2.4km high mountain peak jutting out solitarily from the flat plains of Mare Imbrium.", obs:"[추천 관측 월령: 8~9일경, 22~23일경]\n명암경계선에 위치할 때 산이 평원 위로 던지는 바늘같이 뾰족하고 거대한 그림자를 감상하세요.", obs_en:"[Recommended Moon Age: 8~9 days, 22~23 days]\nAdmire the immense, needle-like shadow it casts across the plains when situated on the terminator."},
+            {id:24, name:"히기누스 릴 (Hyginus Rille)", sig:"구덩이 사슬", sig_en:"Crater Chain Rille", lat:7.4, lng:7.8, diam:220, desc:"히기누스 크레이터를 중심으로 양쪽으로 V자형으로 뻗어나가며 함몰된 구덩이 사슬 계곡입니다.", desc_en:"A V-shaped valley extending outward from Hyginus Crater, characterized by a chain of collapse pits.", obs:"[추천 관측 월령: 7일경, 21일경]\n중심이 꺾인 V자 형태의 릴과 그 틈새를 따라 박혀 있는 화산성 구덩이들을 구별해보세요.", obs_en:"[Recommended Moon Age: 7 days, 21 days]\nDistinguish the sharp V-bend of the rille and the individual volcanic pit craters embedded along its length."},
+            {id:25, name:"메시에 쌍둥이 (Messier & Messier A)", sig:"도탄 충돌", sig_en:"Ricochet Impact", lat:-1.9, lng:47.6, diam:11, desc:"소행성이 1~5도의 극도로 낮은 각도로 스치듯 충돌하며 형성된 독특한 타원형 쌍둥이 크레이터입니다.", desc_en:"Unique elliptical twin craters formed by an asteroid ricocheting at an extremely low angle of 1-5 degrees.", obs:"[추천 관측 월령: 4~5일경, 18~19일경]\n크레이터 동쪽으로만 곧게 뻗어 나간 두 가닥의 혜성 꼬리 모양 광조를 확인하세요.", obs_en:"[Recommended Moon Age: 4~5 days, 18~19 days]\nNotice the distinctive double-stranded, comet-tail-like ray system extending straight out to the west."},
+            {id:26, name:"추위의 바다 (Mare Frigoris)", sig:"길쭉한 바다", sig_en:"Elongated Mare", lat:56.0, lng:1.4, diam:1600, desc:"달의 북반구 상단을 따라 띠 모양으로 길게 늘어선 비정형 바다입니다.", desc_en:"An irregularly shaped mare stretching horizontally like a long ribbon across the moon's northern hemisphere.", obs:"[추천 관측 월령: 7~8일경, 21~22일경]\n달 북쪽 가장자리를 따라 수평으로 광활하게 펼쳐진 특유의 좁고 긴 띠 모양 실루엣을 훑어보세요.", obs_en:"[Recommended Moon Age: 7~8 days, 21~22 days]\nScan the vast, narrow ribbon-like silhouette stretching horizontally along the northern limb."},
+            {id:27, name:"아르키메데스 (Archimedes)", sig:"용암 바닥", sig_en:"Lava-Flooded Floor", lat:29.7, lng:-4.0, diam:83, desc:"내부에 대량의 용암이 차올라 중앙 봉우리를 완전히 파묻어버린 매끈한 지형입니다.", desc_en:"A crater whose interior was flooded with so much lava that its central peak was completely buried.", obs:"[추천 관측 월령: 8일경, 22일경]\n안쪽 바닥에 중앙 봉우리 없이 거울처럼 극도로 매끄러운 질감을 고배율로 확인하세요.", obs_en:"[Recommended Moon Age: 8 days, 22 days]\nObserve the mirror-like, extremely smooth texture of its floor devoid of any central peaks at high power."},
+            {id:28, name:"히파르쿠스 (Hipparchus)", sig:"침식 크레이터", sig_en:"Degraded Crater", lat:-5.5, lng:4.8, diam:150, desc:"무수한 우주 파편의 폭격으로 테두리가 심하게 마모된 150km의 고대 크레이터입니다.", desc_en:"An ancient 150km crater whose rim has been heavily battered and eroded by endless cosmic impacts.", obs:"[추천 관측 월령: 7일경, 21일경]\n바로 남쪽의 젊은 알폰수스 크레이터의 뚜렷한 외곽선과 비교하며 풍화 작용을 직접 느껴보세요.", obs_en:"[Recommended Moon Age: 7 days, 21 days]\nCompare its worn edges with the sharp rim of the younger Alphonsus crater just to the south."},
+            {id:29, name:"아리다에우스 릴 (Ariadaeus Rille)", sig:"선형 지구대", sig_en:"Linear Graben", lat:6.4, lng:14.0, diam:250, desc:"달의 지각이 찢어지며 바닥이 주저앉아 생긴 길이 250km의 곧고 선명한 협곡입니다.", desc_en:"A 250km long, exceptionally straight and clear graben valley formed by the tearing of the lunar crust.", obs:"[추천 관측 월령: 6~7일경, 20~21일경]\n히기누스 릴의 굽음과 대조적으로, 자를 대고 그은 듯 직선으로 깊게 파인 골짜기를 관측하세요.", obs_en:"[Recommended Moon Age: 6~7 days, 20~21 days]\nContrast it with Hyginus Rille; note how this trench is carved in a perfectly straight line."},
+            {id:30, name:"실러 (Schiller)", sig:"장방형 충돌구", sig_en:"Elongated Crater", lat:-51.9, lng:-39.0, diam:180, desc:"두세 개의 소행성이 연달아 비스듬히 떨어져 생긴 길쭉한 고구마 모양 지형입니다.", desc_en:"A bizarre, footprint-shaped elongated crater formed by multiple overlapping low-angle impacts.", obs:"[추천 관측 월령: 11일경, 25일경]\n달의 남서쪽 끄트머리에서 동그란 분화구들과 이질적인 '신발 밑창' 실루엣을 찾아보세요.", obs_en:"[Recommended Moon Age: 11 days, 25 days]\nLook for this highly anomalous 'shoe print' silhouette among the circular craters in the southwest."},
+            {id:31, name:"타룬티우스 (Taruntius)", sig:"내부 균열", sig_en:"Floor Fractures", lat:5.6, lng:46.5, diam:56, desc:"지반 밑 마그마가 솟아오르는 압력 때문에 바닥 표면이 갈라진 형태를 띱니다.", desc_en:"Its floor is fractured and uplifted due to the pressure of rising magma beneath the surface.", obs:"[추천 관측 월령: 4~5일경, 18~19일경]\n명암경계선 부근에서 고배율을 사용해 둥근 바닥 내부를 가로지르는 미세한 동심원상 균열을 관찰하세요.", obs_en:"[Recommended Moon Age: 4~5 days, 18~19 days]\nUse high power near the terminator to spot the delicate concentric fractures crossing its floor."},
+            {id:32, name:"아라고 돔 (Arago Alpha & Beta)", sig:"화산 돔", sig_en:"Volcanic Domes", lat:6.2, lng:21.4, diam:26, desc:"용암이 조용히 솟아올라 굳으면서 만든 높이 300m 수준의 매우 완만한 방패형 언덕입니다.", desc_en:"Very gentle, 300m high shield-like hills formed by slowly oozing and solidifying lava.", obs:"[추천 관측 월령: 5~6일경, 19~20일경]\n경사가 매우 완만하므로 사선광 아래에서만 부드러운 언덕의 입체감이 드러납니다.", obs_en:"[Recommended Moon Age: 5~6 days, 19~20 days]\nTheir slopes are so gentle that their 3D bumpiness only reveals itself under grazing lighting."},
+            {id:33, name:"뱀 모양 능선 (Serpentine Ridge)", sig:"주름 능선", sig_en:"Wrinkle Ridge", lat:27.3, lng:25.3, diam:155, desc:"맑음의 바다를 횡단하며 뱀이 기어가는 듯 굽이치는 능선. 용암이 식으며 수축할 때 융기했습니다.", desc_en:"A meandering ridge crossing Mare Serenitatis like a slithering snake, formed by shrinking lava.", obs:"[추천 관측 월령: 5~6일경, 19~20일경]\n저각도 조명이 비칠 때 바다 평면 위로 튀어나온 구불구불한 그림자 선을 체감하세요.", obs_en:"[Recommended Moon Age: 5~6 days, 19~20 days]\nUnder low sun angles, trace the twisting shadow line popping out above the flat mare."},
+            {id:34, name:"죽음의 호수 (Lacus Mortis)", sig:"내부 단층", sig_en:"Internal Faults", lat:45.0, lng:27.2, diam:152, desc:"거대한 분화구였으나 용암에 침수되어 평원이 된 지역. 내부에 깊은 릴과 복잡한 단층이 산재합니다.", desc_en:"A flooded ancient crater now a plain, scattered with deep rilles and complex internal fault lines.", obs:"[추천 관측 월령: 5~6일경, 19~20일경]\n평평한 어두운 바닥 지형을 가로지르며 길게 난 뚜렷한 선형 구조물을 집중적으로 탐사하세요.", obs_en:"[Recommended Moon Age: 5~6 days, 19~20 days]\nFocus on exploring the distinct linear fault structures slicing across the dark, flat floor."},
+            {id:35, name:"트리스네커 릴 (Triesnecker Rilles)", sig:"릴 네트워크", sig_en:"Rille Network", lat:4.3, lng:4.6, diam:215, desc:"중앙만의 크레이터 동쪽에 핏줄이나 나뭇가지처럼 복잡하게 얽혀 퍼져 나가는 대규모 릴 시스템입니다.", desc_en:"A massive system of rilles branching out like blood veins or tree roots east of Sinus Medii.", obs:"[추천 관측 월령: 7일경, 21일경]\n북에서 남으로 흐르다 여러 갈래로 갈라지는 섬세한 틈새망을 좋은 대기 상태에서 추적해보세요.", obs_en:"[Recommended Moon Age: 7 days, 21 days]\nTrace the delicate network of cracks splitting from north to south during good seeing conditions."},
+            {id:36, name:"그리말디 분지 (Grimaldi Basin)", sig:"어두운 바닥", sig_en:"Dark Floor Basin", lat:-5.5, lng:-68.3, diam:440, desc:"달 표면에서 가장 어두운 알베도를 가진 지역 중 하나. 고대의 2중 고리 분지 잔해입니다.", desc_en:"One of the darkest albedo regions on the moon. It is the remnant of an ancient double-ring basin.", obs:"[추천 관측 월령: 13일경~보름, 27일경]\n밝은 고지대와 확연히 대비되는 극도로 짙은 먹물 같은 검은 패치를 서쪽 가장자리 근처에서 확인하세요.", obs_en:"[Recommended Moon Age: 13 days~Full, 27 days]\nSpot the ink-black patch near the western limb, contrasting starkly with the bright highlands."},
+            {id:37, name:"베이이 (Bailly)", sig:"거대 분지", sig_en:"Giant Basin", lat:-66.5, lng:-69.1, diam:303, desc:"달 앞면에서 보이는 가장 거대한 크레이터급 지형. 남서쪽 극단에 치우쳐 타원으로만 보입니다.", desc_en:"The largest crater-like feature visible on the near side. Located at the extreme southwest limb.", obs:"[추천 관측 월령: 남/서 칭동 우호 시]\n달의 남서쪽 칭동이 우리 쪽으로 기울어질 때만 테두리의 장엄함을 지평선 끝자락에서 가늠해볼 수 있습니다.", obs_en:"[Recommended Moon Age: SW Libration]\nIts true majesty can only be glimpsed on the horizon when the SW libration tilts it towards Earth."},
+            {id:38, name:"사빈 & 리터 (Sabine & Ritter)", sig:"쌍둥이 지형", sig_en:"Twin Craters", lat:1.7, lng:19.7, diam:30, desc:"고요의 바다 서남쪽에 위치한 쌍둥이 크레이터. 근처에 아폴로 11호 착륙선이 내렸습니다.", desc_en:"Twin craters located southwest of Mare Tranquillitatis. Apollo 11 landed nearby.", obs:"[추천 관측 월령: 6일경, 20일경]\n이 나란한 두 크레이터를 출발점으로 동쪽 평원으로 시선을 옮겨 아폴로 11호의 착륙 위치를 가늠합니다.", obs_en:"[Recommended Moon Age: 6 days, 20 days]\nUse these parallel craters as a starting point to scan east and locate the Apollo 11 landing site."},
+            {id:39, name:"쉬카르드 (Schickard)", sig:"바닥 줄무늬", sig_en:"Striped Floor", lat:-44.3, lng:-55.3, diam:227, desc:"동방의 바다 형성 시 날아온 분출물이 크레이터 바닥을 덮으며 얼룩무늬를 형성했습니다.", desc_en:"Ejecta from the Orientale impact blanketed the floor, creating a distinctive striped pattern.", obs:"[추천 관측 월령: 12일경, 26일경]\n바닥 평면에 밝은 모래와 어두운 토양이 섞여 붓질을 한 것처럼 남겨진 줄무늬 명암을 살펴보세요.", obs_en:"[Recommended Moon Age: 12 days, 26 days]\nLook closely at the floor to see the brush-like strokes of light and dark soil mixed together."},
+            {id:40, name:"얀센 릴 (Janssen Rille)", sig:"고지대 릴", sig_en:"Highland Rille", lat:-45.4, lng:39.3, diam:190, desc:"주로 바다에서 발견되는 릴이 특이하게도 고지대의 얀센 크레이터 바닥을 넓게 굽이쳐 흐릅니다.", desc_en:"An unusual rille snaking widely across the floor of Janssen crater, located in the rough highlands.", obs:"[추천 관측 월령: 4~5일경, 18~19일경]\n훼손된 얀센 분화구 내부를 관통하며 초승달처럼 깊게 곡선을 그리는 협곡을 찾아보세요.", obs_en:"[Recommended Moon Age: 4~5 days, 18~19 days]\nFind the deep, crescent-curved canyon cutting through the heavily degraded interior of Janssen."},
+            {id:41, name:"베셀 광조 (Bessel Ray)", sig:"기원 불명", sig_en:"Mysterious Ray", lat:21.8, lng:17.9, diam:50, desc:"맑음의 바다 중앙을 남북으로 곧게 가로지르는 미스터리한 긴 흰색 선형 광조입니다.", desc_en:"A mysterious, straight white ray cutting dead north-south right through the center of Mare Serenitatis.", obs:"[추천 관측 월령: 14일경, 보름]\n태양광이 달을 수직으로 내리쬘 때 바다 한가운데를 자르듯 지나가는 하얀 직선을 발견할 수 있습니다.", obs_en:"[Recommended Moon Age: 14 days, Full Moon]\nUnder direct sunlight, spot this prominent white line cleanly slicing the mare in half."},
+            {id:42, name:"마리우스 언덕 (Marius Hills)", sig:"화산 군락", sig_en:"Volcanic Domes", lat:12.5, lng:-54.0, diam:125, desc:"폭풍의 대양 서쪽에 300개가 넘는 화산 돔과 구릉이 밀집해 있는 달 최대 화산 중심 구역입니다.", desc_en:"The moon's largest volcanic complex, featuring over 300 volcanic domes densely clustered in Oceanus Procellarum.", obs:"[추천 관측 월령: 12~13일경, 26~27일경]\n조명 각도가 매우 낮을 때 관측해야, 평원 위로 오돌토돌 솟은 수많은 작은 돔들의 질감이 드러납니다.", obs_en:"[Recommended Moon Age: 12~13 days, 26~27 days]\nRequires very low sun angles to reveal the bumpy, pimple-like texture of countless small domes."},
+            {id:43, name:"바르겐틴 (Wargentin)", sig:"용암 고원", sig_en:"Lava Plateau", lat:-49.6, lng:-60.2, diam:84, desc:"용암이 테두리 밖으로 넘치기 직전까지 꽉 채워진 채 굳어버린 희귀한 역전형 분화구입니다.", desc_en:"A rare inverted crater filled to the absolute brim with lava that solidified just before spilling over.", obs:"[추천 관측 월령: 12~13일경, 26~27일경]\n일반 분화구가 푹 파인 모양인 것과 달리, 지면 위로 둥글게 솟아오른 원반 고원 형태의 입체감을 비교하세요.", obs_en:"[Recommended Moon Age: 12~13 days, 26~27 days]\nCompare its raised, disc-like plateau appearance with the typical bowl-shape of normal craters."},
+            {id:44, name:"메르세니우스 (Mersenius)", sig:"볼록한 바닥", sig_en:"Bowed Floor", lat:-21.5, lng:-49.2, diam:84, desc:"마그마 굄층의 압력으로 크레이터 바닥이 위로 거품처럼 부풀어 올라 돔 형태를 띠게 되었습니다.", desc_en:"The crater floor swelled upwards like a bubble into a dome shape due to underlying magma pressure.", obs:"[추천 관측 월령: 11일경, 25일경]\n내부 테두리 아래로 드리워진 그림자 곡선을 잘 살펴보면, 바닥 중앙이 불룩하게 솟은 것을 느낄 수 있습니다.", obs_en:"[Recommended Moon Age: 11 days, 25 days]\nStudy the shadow curve cast across the interior to sense the distinctly convex bulge of the floor."},
+            {id:45, name:"모로리쿠스 (Maurolycus)", sig:"중첩 충돌", sig_en:"Overlapping Impacts", lat:-42.0, lng:14.0, diam:114, desc:"충돌이 너무 잦아 크레이터 안에 또 크레이터가 생기며 지형이 극도로 포화된 지역입니다.", desc_en:"An area so saturated with impacts that craters formed inside other craters in a chaotic mess.", obs:"[추천 관측 월령: 6일경, 20일경]\n수많은 분화구들이 서로의 테두리를 갉아먹고 겹쳐져 있는 거친 달 초기의 충돌 역사를 감상하세요.", obs_en:"[Recommended Moon Age: 6 days, 20 days]\nWitness the moon's violent early history where countless craters bite into and overlap each other."},
+            {id:46, name:"레기오몬타누스 픽 (Regiomontanus Peak)", sig:"화산성 봉우리", sig_en:"Volcanic Peak", lat:-28.0, lng:-0.6, diam:124, desc:"중심에서 벗어난 한쪽으로 치우쳐 솟은 기이한 봉우리로 화산 활동 기원이라는 가설이 있습니다.", desc_en:"An odd, off-center peak suspected of having a volcanic origin rather than an impact rebound.", obs:"[추천 관측 월령: 8일경, 22일경]\n높이 1,200m 봉우리 꼭대기에 뚫려 있는 작은 5km 구덩이(화산 칼데라 의심)를 고배율로 찾아보세요.", obs_en:"[Recommended Moon Age: 8 days, 22 days]\nSearch high power for a small 5km pit (suspected caldera) right at the summit of this 1,200m peak."},
+            {id:47, name:"알폰수스 암점 (Alphonsus Dark Spots)", sig:"화산재 분출", sig_en:"Dark Halo Spots", lat:-13.7, lng:-3.2, diam:119, desc:"크레이터 바닥 가장자리를 따라 짙게 분포하는 3개의 어두운 반점. 화쇄류 분출 흔적입니다.", desc_en:"Three distinctive dark patches along the crater floor edges, remnants of pyroclastic ash eruptions.", obs:"[추천 관측 월령: 8~9일경, 22~23일경]\n밝은 바닥 평면 대비 뚜렷하게 검은 반점들을 찾고, 그 중앙에 뚫린 작은 화산구를 확인해보세요.", obs_en:"[Recommended Moon Age: 8~9 days, 22~23 days]\nFind the starkly dark spots against the lighter floor, and look for the tiny volcanic vents centering them."},
+            {id:48, name:"코시 지역 (Cauchy Region)", sig:"단층과 릴", sig_en:"Faults and Rilles", lat:10.5, lng:38.0, diam:130, desc:"크레이터를 중앙에 두고 깊은 단층과 틈새 릴이 평행하게 달리는 지질 교과서입니다.", desc_en:"A geological textbook where a deep fault and a tension rille run parallel, flanking the central crater.", obs:"[추천 관측 월령: 4~5일경, 18~19일경]\n철길처럼 나란히 놓인 선 구조를 파악하고, 단층이 만드는 그림자와 릴이 파인 음영을 비교하세요.", obs_en:"[Recommended Moon Age: 4~5 days, 18~19 days]\nCompare the shadow cast by the fault wall against the shadowed trench of the rille running parallel."},
+            {id:49, name:"그루이투이젠 돔 (Gruithuisen Domes)", sig:"규산염 돔", sig_en:"Silicic Domes", lat:36.3, lng:-40.0, diam:20, desc:"일반 달 현무암과 달리 점성이 높은 규산염 마그마가 밀려 올라와 가파르게 굳어진 산입니다.", desc_en:"Steep-sided mountains formed by highly viscous silicic magma, unlike typical fluid lunar basalts.", obs:"[추천 관측 월령: 11일경, 25일경]\n델타와 감마 두 산이 주변의 완만한 언덕들과 달리 꽤 경사지고 뭉툭하게 솟은 형태를 관찰하세요.", obs_en:"[Recommended Moon Age: 11 days, 25 days]\nObserve how Delta and Gamma mountains rise steeply and bulkily compared to standard lunar domes."},
+            {id:50, name:"케일리 평원 (Cayley Plains)", sig:"밝은 평원", sig_en:"Light Plains", lat:4.0, lng:15.1, diam:14, desc:"험준한 고지대임에도 매우 매끄러운 바닥을 가져 화산재로 오해받았던 미스터리 평원입니다.", desc_en:"A mysterious smooth plain in the rugged highlands, once mistakenly thought to be volcanic ash.", obs:"[추천 관측 월령: 6~7일경, 20~21일경]\n프톨레마이오스 동쪽의 거친 고지대들 사이로 이상하리만치 매끄럽게 펼쳐진 지형을 찾아보세요.", obs_en:"[Recommended Moon Age: 6~7 days, 20~21 days]\nFind this oddly smooth, bright plain stretching out among the rough terrain east of Ptolemaeus."},
+            {id:51, name:"데비 크레이터 체인 (Davy Crater Chain)", sig:"혜성 파편", sig_en:"Comet Debris", lat:-11.1, lng:-6.6, diam:50, desc:"쪼개진 혜성의 파편들이 기관총 쏘듯 표면에 연달아 떨어지며 만든 일렬의 구덩이 사슬입니다.", desc_en:"A linear chain of pits formed by fragments of a torn-apart comet hitting the surface like machine-gun fire.", obs:"[추천 관측 월령: 8~9일경, 22~23일경]\n지름 1~3km의 작은 구멍들이 50km 길이로 선형으로 늘어선 모습을 최대한 고배율로 분해해 내세요.", obs_en:"[Recommended Moon Age: 8~9 days, 22~23 days]\nPush your magnification to resolve this 50km string of tiny 1-3km wide impact holes."},
+            {id:52, name:"크뤼거 (Crüger)", sig:"용암 칼데라", sig_en:"Lava Caldera", lat:-16.7, lng:-66.8, diam:45, desc:"내부가 극도로 어두운 현무암질 용암이 고여 있어 고대 거대한 화산 칼데라로 추정되는 곳입니다.", desc_en:"An exceptionally dark basalt-filled floor, leading to suspicions it might be a massive ancient caldera.", obs:"[추천 관측 월령: 13일경, 27일경]\n주변의 밝고 거친 고지대 지형과 완벽히 대조를 이루는 잉크 같은 짙은 검은색 원형 바닥을 관측하세요.", obs_en:"[Recommended Moon Age: 13 days, 27 days]\nNotice the stark contrast between the bright, rough surroundings and its ink-black circular floor."},
+            {id:53, name:"라몽 (Lamont)", sig:"묻힌 분지", sig_en:"Buried Basin", lat:4.4, lng:23.7, diam:106, desc:"고요의 바다 수면 아래 깊숙이 파묻힌 고대 충돌 분지의 뼈대로, 수축 시 주름 능선을 남겼습니다.", desc_en:"The skeleton of an ancient basin buried deep under Mare Tranquillitatis, traced by wrinkle ridges.", obs:"[추천 관측 월령: 5일경, 19일경]\n태양광이 스치듯 지나갈 때만, 바다 한가운데 동심원상으로 배열된 희미한 주름들을 포착할 수 있습니다.", obs_en:"[Recommended Moon Age: 5 days, 19 days]\nOnly visible at grazing light, catch the faint concentric rings of wrinkle ridges in the mare's center."},
+            {id:54, name:"히팔루스 릴 (Hippalus Rilles)", sig:"동심원 릴", sig_en:"Concentric Rilles", lat:-24.5, lng:-29.0, diam:240, desc:"습기의 바다가 침하할 때 가장자리가 버티지 못하고 찢어지며 생긴 호 모양의 릴입니다.", descen:"Arc-shaped rilles formed when the edge of Mare Humorum tore apart as the basin subsided.", obs:"[추천 관측 월령: 10~11일경, 24~25일경]\n바다 동쪽 경계를 따라 나란히 곡선을 그리는 2~3가닥의 틈새가 히팔루스를 어떻게 관통하는지 보세요.", obs_en:"[Recommended Moon Age: 10~11 days, 24~25 days]\nWatch how these 2-3 parallel, curving fractures slice right through Hippalus crater."},
+            {id:55, name:"바코 (Baco)", sig:"매끄러운 내부", sig_en:"Smooth Interior", lat:-51.0, lng:19.1, diam:69, desc:"울퉁불퉁한 남부 고지대 한가운데서 유난히 분출물 없이 매끄러운 바닥을 유지하는 지형입니다.", desc_en:"An anomaly in the battered southern highlands, featuring an unusually smooth floor free of debris.", obs:"[추천 관측 월령: 6~7일경, 20~21일경]\n주변은 무수한 운석 구덩이로 거친데 반해, 바코 내부만큼은 쓸어낸 듯 평평한 고요함을 감상하세요.", obs_en:"[Recommended Moon Age: 6~7 days, 20~21 days]\nAppreciate the calm, swept-clean flatness of its interior amidst the surrounding chaotic craters."},
+            {id:56, name:"남쪽의 바다 (Mare Australe)", sig:"경계 분지", sig_en:"Limb Basin", lat:-49.8, lng:84.5, diam:880, desc:"달 앞면과 뒷면 경계에 위치해 지구에서는 절반 이하만 보이는 거대 바다 분지입니다.", desc_en:"A giant mare basin on the lunar limb, with less than half visible from Earth.", obs:"[추천 관측 월령: 남동쪽 칭동 시]\n여러 크레이터 바닥을 채우고 있는 불규칙하고 짙은 검은색의 얼룩 패치들을 지평선 부근에서 엿보세요.", obs_en:"[Recommended Moon Age: SE Libration]\nPeek at the irregular, dark patches filling crater floors right on the southeastern horizon."},
+            {id:57, name:"라이너 감마 (Reiner Gamma)", sig:"소용돌이", sig_en:"Lunar Swirl", lat:7.7, lng:-59.2, diam:70, desc:"강한 국지적 자기장이 태양풍을 차단해 우주 풍화를 막아 밝게 남은 미스터리 무늬입니다.", desc_en:"A mysterious bright swirl preserved from space weathering by a strong localized magnetic field.", obs:"[추천 관측 월령: 13일경~보름, 27일경]\n보름달이 가까워질 무렵, 짙은 회색 바다 위에 밀가루를 뿌린 듯 빛나는 하얀 소용돌이를 관찰하세요.", obs_en:"[Recommended Moon Age: 13 days~Full, 27 days]\nNear full moon, observe this brilliant white, flour-like swirl plastered over the dark gray mare."},
+            {id:58, name:"레이타 계곡 (Vallis Rheita)", sig:"이차 충돌구", sig_en:"Secondary Impact", lat:-42.5, lng:51.5, diam:445, desc:"감로주 분지 형성 시 파편들이 빗자루처럼 긁고 파낸 폭 30km, 길이 500km의 골짜기입니다.", desc_en:"A 500km long valley gouged out by debris flying from the Nectaris basin impact.", obs:"[추천 관측 월령: 4~5일경, 18~19일경]\n사선광 아래에서 굵고 깊게 파인 거대한 계곡의 질감을 보며 당시 쏟아진 파편의 파괴력을 유추해보세요.", obs_en:"[Recommended Moon Age: 4~5 days, 18~19 days]\nSense the destructive power of the debris flow by examining this deeply gouged trench under slanted light."},
+            {id:59, name:"실러-주키우스 (Schiller-Zucchius Basin)", sig:"훼손 분지", sig_en:"Degraded Basin", lat:-56.0, lng:-45.0, diam:335, desc:"운석 충돌로 인해 테두리가 깎이고 덮여 현재는 형체를 알아보기 힘든 뼈대만 남은 다중 고리 분지.", desc_en:"A multi-ring basin whose structure has been heavily erased by subsequent impacts, leaving only a skeleton.", obs:"[추천 관측 월령: 11~12일경, 25~26일경]\n주변 산맥과 융기선들의 미묘한 곡선을 따라가며 직경 335km의 거대한 원형 구조를 상상해 보세요.", obs_en:"[Recommended Moon Age: 11~12 days, 25~26 days]\nTrace the subtle curves of remaining ridges to imagine the original 335km circular structure."},
+            {id:60, name:"키스 파이 돔 (Kies Pi)", sig:"전형적 화산", sig_en:"Shield Volcano", lat:-26.9, lng:-24.2, diam:45, desc:"현무암질 용암이 흘러나와 층을 이루며 굳어진 전형적인 쉴드 화산(방패 화산) 돔 지형입니다.", desc_en:"A classic shield volcano dome formed by oozing layers of fluid basaltic lava.", obs:"[추천 관측 월령: 9~10일경, 23~24일경]\n경사가 완만해 평소엔 보이지 않습니다. 태양 고도가 극단적으로 낮을 때 정상의 캘데라를 확인하세요.", obs_en:"[Recommended Moon Age: 9~10 days, 23~24 days]\nInvisible most times due to gentle slopes. Try to catch the summit caldera under extreme grazing light."},
+            {id:61, name:"뫼스티히 A (Mösting A)", sig:"중심 크레이터", sig_en:"Central Crater", lat:-3.2, lng:-5.2, diam:13, desc:"달 원반 중심에 매우 가깝게 위치한 지름 13km의 밝고 단순한 분화구. 관측의 기준점이 됩니다.", desc_en:"A bright, simple 13km crater very close to the center of the lunar disk. Used as a reference point.", obs:"[추천 관측 월령: 8일경, 22일경, 보름]\n달의 중심을 가늠할 때 사용하세요. 아주 깊은 그릇 모양으로 파여 있어 가장자리가 밝게 빛납니다.", obs_en:"[Recommended Moon Age: 8 days, 22 days, Full]\nUse it to pinpoint the moon's center. Its deep bowl shape makes its rims shine brightly."},
+            {id:62, name:"륌커 돔 (Mons Rümker)", sig:"화산 복합체", sig_en:"Volcanic Complex", lat:40.8, lng:-58.1, diam:70, desc:"폭풍의 대양 고립된 지역에 수십 개의 화산 돔들이 엉겨 붙어 형성된 거대 화산 복합 융기대입니다.", desc_en:"A massive volcanic bulge where dozens of individual domes merged together in Oceanus Procellarum.", obs:"[추천 관측 월령: 13일경, 27일경]\n명암경계선 스칠 때, 뇌 표면이나 주름처럼 오돌토돌한 수많은 작은 언덕 무리들을 감상할 수 있습니다.", obs_en:"[Recommended Moon Age: 13 days, 27 days]\nWhen grazing the terminator, it resembles a brain's surface with its numerous bumpy little hills."},
+            {id:63, name:"비의 바다 조각 (Imbrium Sculpture)", sig:"방사형 상흔", sig_en:"Radial Grooves", lat:11.0, lng:12.0, diam:50, desc:"비의 바다 초대형 충돌 여파로 날아간 파편들이 떨어져 긁고 간 깊은 방사형 골짜기들입니다.", desc_en:"Deep radial grooves gouged by flying ejecta from the colossal Imbrium impact event.", obs:"[추천 관측 월령: 7~8일경, 21~22일경]\n지형들이 북서쪽에서 남동쪽 방향으로 일제히 빗질 당한 것처럼 길게 깎여나간 빗살무늬를 봅니다.", obs_en:"[Recommended Moon Age: 7~8 days, 21~22 days]\nObserve the striated pattern where the terrain was uniformly scraped from northwest to southeast."},
+            {id:64, name:"데카르트 (Descartes)", sig:"아폴로 16호", sig_en:"Apollo 16 Landing", lat:-11.7, lng:15.7, diam:48, desc:"강력한 자기 이상을 띠는 고지대 평원. 케일리 평원이 화산재가 아닌 충돌 분출물임을 밝혀냈습니다.", desc_en:"A highly magnetic highland plain. Apollo 16 proved the plains here were impact ejecta, not volcanic.", obs:"[추천 관측 월령: 6~7일경, 20~21일경]\n거칠고 오래된 달 고지대 지형 중 유난히 밝게 빛나면서도 매끄러운 케일리 평원의 확장을 확인하세요.", obs_en:"[Recommended Moon Age: 6~7 days, 20~21 days]\nIdentify the unusually bright yet smooth Cayley plains spreading among the ancient rugged highlands."},
+            {id:65, name:"호르텐시우스 돔 (Hortensius Domes)", sig:"돔 군락", sig_en:"Dome Cluster", lat:7.6, lng:-27.9, diam:10, desc:"반구형 화산 돔 반 다스가 평원 위에 여드름처럼 옹기종기 무리 지어 솟아 있는 대표적 돔 군락지.", desc_en:"A classic cluster of a half-dozen hemispherical volcanic domes gathered like pimples on the plain.", obs:"[추천 관측 월령: 9~10일경, 23~24일경]\n그림자가 길어질 때 6개 이상의 돔을 분별하고 그중 정상의 작은 함몰 구멍을 관측해보세요.", obs_en:"[Recommended Moon Age: 9~10 days, 23~24 days]\nCount at least 6 domes when shadows lengthen, and attempt to spot their tiny summit pit craters."},
+            {id:66, name:"해들리 릴 (Hadley Rille)", sig:"아폴로 15호", sig_en:"Apollo 15 Site", lat:25.0, lng:3.0, diam:80, desc:"과거 용암 튜브가 무너져 내린 것으로, 아폴로 15호 월면차가 이 계곡 가장자리를 직접 달렸습니다.", desc_en:"A collapsed ancient lava tube. The Apollo 15 rover famously drove right along its edge.", obs:"[추천 관측 월령: 7~8일경, 21~22일경]\n아펜니노 산맥 기슭을 구불구불 흐르는 가느다란 협곡을 200배 이상의 고배율로 끝까지 추적해 보세요.", obs_en:"[Recommended Moon Age: 7~8 days, 21~22 days]\nTrace this very thin, winding gorge along the Apennine foothills using 200x+ magnification."},
+            {id:67, name:"프라 마우로 (Fra Mauro Formation)", sig:"분출물 고원", sig_en:"Ejecta Formation", lat:-3.6, lng:-17.5, diam:100, desc:"비의 바다 거대 충돌 분출물이 원래 있던 크레이터들을 덮어버리고 거칠게 융기한 고원입니다.", desc_en:"A rough, uplifted plateau where Imbrium ejecta smothered and buried the pre-existing craters.", obs:"[추천 관측 월령: 8~9일경, 22~23일경]\n사선 조명에서 모래사장에 파묻힌 듯 테두리만 남은 분화구들과 빗자루로 쓴 듯한 지형을 볼 수 있습니다.", obs_en:"[Recommended Moon Age: 8~9 days, 22~23 days]\nUnder slanted light, look for buried craters showing only rims and terrain that looks swept by a broom."},
+            {id:68, name:"플램스티드 P (Flamsteed P)", sig:"용암 링", sig_en:"Ghost Ring", lat:-3.0, lng:-44.0, diam:112, desc:"대규모 용암 폭발로 지형이 수몰되고 현재는 꼭대기 산봉우리들만 점선 고리처럼 수면 위로 남았습니다.", desc_en:"A crater totally submerged by massive lava flows, leaving only its highest peaks forming a dotted ring.", obs:"[추천 관측 월령: 11~12일경, 25~26일경]\n완벽한 원을 그리는 불연속적인 융기 지형 안의 용암 바다가 주변 평원과 어떻게 연결되는지 보세요.", obs_en:"[Recommended Moon Age: 11~12 days, 25~26 days]\nObserve how the lava inside this dotted circle perfectly matches the level of the surrounding plain."},
+            {id:69, name:"코페르니쿠스 2차 (Copernicus Secondary Craters)", sig:"파편 낙하", sig_en:"Secondary Craters", lat:19.6, lng:-19.1, diam:4, desc:"코페르니쿠스 충돌 파편이 주변에 무더기로 떨어지며 만든 수많은 2차 충돌 구덩이들.", desc_en:"Clusters of small secondary craters created by falling debris blasted out from the Copernicus impact.", obs:"[추천 관측 월령: 9~10일경, 23~24일경]\n피테아스 크레이터 근처의 백색 광조 선을 따라 흩어져 있는 자잘한 구덩이 체인들을 짚어가세요.", obs_en:"[Recommended Moon Age: 9~10 days, 23~24 days]\nFollow the white rays near Pytheas crater to spot these scattered chains of tiny pockmarks."},
+            {id:70, name:"훔볼트 분지 (Humboldtianum Basin)", sig:"가장자리 바다", sig_en:"Limb Mare", lat:57.0, lng:80.0, diam:650, desc:"북동쪽 지평선 너머로 아슬아슬하게 걸쳐 있는 거대 다중 고리 형태의 충돌 분지입니다.", desc_en:"A massive multi-ring impact basin perched precariously right on the northeastern limb.", obs:"[추천 관측 월령: 동북 칭동 최대 시]\n가장자리 곡선을 따라 평행하게 놓인 어두운 바다 무늬와 층층이 쌓인 산맥 고리를 간신히 포착해냅니다.", obs_en:"[Recommended Moon Age: NE Libration]\nBarely catch the dark mare patches and layered mountain rings aligning with the edge curvature."},
+            {id:71, name:"술피키우스 갈루스 (Sulpicius Gallus)", sig:"화산재", sig_en:"Volcanic Ash", lat:19.6, lng:11.6, diam:12, desc:"수십억 년 전 화산 폭발 시 뿜어진 검은 유리질 화산재가 지표면에 두껍게 퇴적된 구역입니다.", desc_en:"An area thickly coated with black glassy volcanic ash erupted billions of years ago.", obs:"[추천 관측 월령: 7~8일경, 21~22일경, 보름]\n주변 현무암 바다보다 반사율이 낮아 유난히 검은색을 띠는 길쭉한 얼룩 패치(DMD)를 찾아보세요.", obs_en:"[Recommended Moon Age: 7~8 days, 21~22 days, Full]\nFind this elongated dark mantle deposit (DMD) that is noticeably blacker than the adjacent basalt mare."},
+            {id:72, name:"아틀라스 암점 (Atlas Dark-Halo Craters)", sig:"바닥 화산구", sig_en:"Dark Halo Pits", lat:46.7, lng:44.4, diam:87, desc:"크레이터 바닥 북쪽과 남쪽 끝단에 잉크를 떨어뜨린 것처럼 자리 잡은 화쇄류 분출 흔적입니다.", desc_en:"Pyroclastic eruption marks sitting like ink drops on the northern and southern ends of the crater floor.", obs:"[추천 관측 월령: 5~6일경, 19~20일경]\n바닥의 뚜렷한 검은 반점 두 개를 찾고, 반점 정중앙에 뚫린 2~3km 직경의 벤트 구멍 분해에 도전하세요.", obs_en:"[Recommended Moon Age: 5~6 days, 19~20 days]\nSpot the two distinct black spots and challenge yourself to resolve the tiny 2-3km vents at their centers."},
+            {id:73, name:"스미스의 바다 (Mare Smythii)", sig:"동쪽 경계", sig_en:"Eastern Limb Mare", lat:-2.0, lng:87.0, diam:740, desc:"지구에서 간신히 관측 가능한 동쪽 적도 너머의 원형 용암 바다.", desc_en:"A circular lava mare sitting just beyond the eastern equator, barely visible from Earth.", obs:"[추천 관측 월령: 동쪽 칭동 최대 시]\n우측 지평선 가장자리에 거대한 어두운 얼룩 덩어리가 아슬아슬하게 살짝 넘어오는 모습을 관측하세요.", obs_en:"[Recommended Moon Age: East Libration]\nObserve a massive dark blob peeking just over the edge of the right-side horizon."},
+            {id:74, name:"코페르니쿠스 H (Copernicus H)", sig:"암색 후광", sig_en:"Dark Halo", lat:6.9, lng:-18.3, diam:5, desc:"크레이터 폭발 시 얕은 지각 밑의 검은 용암층을 파내어 흰색 광조 대신 검은 물질을 뿜어냈습니다.", desc_en:"An impact that excavated shallow underlying basalt, spewing out black material instead of bright rays.", obs:"[추천 관측 월령: 9~10일경, 23~24일경]\n하얀 광조 도화지 위에 검은 잉크가 번진 것처럼 둥글게 짙은 후광을 두른 작고 검은 구멍을 발견하세요.", obs_en:"[Recommended Moon Age: 9~10 days, 23~24 days]\nFind this small black hole sporting a dark halo, looking like ink spilled on the white ray canvas."},
+            {id:75, name:"프톨레마이오스 B (Ptolemaeus B)", sig:"유령 크레이터", sig_en:"Ghost Crater", lat:-8.0, lng:-0.8, diam:16, desc:"용암과 분출물이 바닥을 완전히 덮어버리면서 크레이터 테두리 능선만이 얕게 살아남은 지형.", desc_en:"A crater almost entirely buried by ejecta and lava, leaving only a very shallow outline of its rim.", obs:"[추천 관측 월령: 7~8일경, 21~22일경]\n매우 고도가 낮은 사선광에서 매끄러운 평원 위에 숨겨진 직경 16km의 희미한 링 윤곽을 포착하세요.", obs_en:"[Recommended Moon Age: 7~8 days, 21~22 days]\nCatch the faint 16km ring outline hidden on the smooth plain under extremely low-angle lighting."},
+            {id:76, name:"W. 본드 (W. Bond)", sig:"거대 사각형", sig_en:"Giant Rectangle", lat:65.3, lng:3.7, diam:158, desc:"달 북극 근처. 거대 파편 폭격으로 벽이 허물어져 다이아몬드나 불규칙한 사각형 모양이 되었습니다.", desc_en:"Near the north pole. Its walls were battered into an irregular diamond or rectangular shape.", obs:"[추천 관측 월령: 7~8일경, 21~22일경]\n일반 크레이터와 달리 평평하고 거대한 비정형 직사각형 윤곽과 모서리를 북극의 낮은 빛에서 찾으세요.", obs_en:"[Recommended Moon Age: 7~8 days, 21~22 days]\nLook for its massive, flat, non-circular rectangular outline and corners in the low northern light."},
+            {id:77, name:"시르살리스 릴 (Sirsalis Rille)", sig:"최장 선형 릴", sig_en:"Longest Rille", lat:-15.7, lng:-61.7, diam:425, desc:"폭풍의 대양 경계와 평행하게 400km 이상 끊김 없이 시원하게 가로지르는 달 최장의 지각 균열입니다.", desc_en:"The moon's longest crustal fracture, cutting cleanly for over 400km parallel to Oceanus Procellarum.", obs:"[추천 관측 월령: 13일경, 27일경]\n산맥과 다른 크레이터 테두리까지 가차 없이 찢으며 일직선으로 뻗어나가는 거대 칼자국을 훑어보세요.", obs_en:"[Recommended Moon Age: 13 days, 27 days]\nScan this massive knife-cut that mercilessly tears through mountains and crater rims in a straight line."},
+            {id:78, name:"람베르트 R (Lambert R)", sig:"용암 링", sig_en:"Ghost Ring", lat:23.8, lng:-20.6, diam:54, desc:"현무암 바다 아래 완전히 파묻혀 과거 산봉우리 꼭대기 부분만 수면 위로 점선처럼 드러난 링.", desc_en:"Buried under basaltic mare, with only the very tops of its former peaks showing as a dotted ring.", obs:"[추천 관측 월령: 9~10일경, 23~24일경]\n일출이나 일몰 시 태양 고도가 아주 낮을 때만 점선처럼 희미하게 이어지는 원형 돌출부를 찾으세요.", obs_en:"[Recommended Moon Age: 9~10 days, 23~24 days]\nFind the faintly connected circular dotted protrusions only visible at very low sun angles."},
+            {id:79, name:"더위의 만 (Sinus Aestuum)", sig:"검은 맨틀", sig_en:"Dark Mantle", lat:12.0, lng:-3.5, diam:90, desc:"화산재가 넓은 구역을 두껍게 뒤덮고 있어 주변의 일반 바다들보다 훨씬 짙은 어둠을 띱니다.", desc_en:"A wide area heavily blanketed in volcanic ash, making it noticeably darker than normal mare.", obs:"[추천 관측 월령: 보름 전후]\n밝은 아펜니노 산맥 바로 아래 검은 숯가루가 광범위하게 뿌려진 듯한 지역의 알베도 대조를 보세요.", obs_en:"[Recommended Moon Age: Around Full Moon]\nNote the albedo contrast of this charcoal-dusted region sitting just below the bright Apennines."},
+            {id:80, name:"동방의 바다 (Orientale Basin)", sig:"다중 고리", sig_en:"Multi-ring Basin", lat:-19.0, lng:-95.0, diam:930, desc:"달 형성 역사 마지막에 형성되어 3중 산맥 고리를 고스란히 보존하고 있는 태양계 으뜸 분지.", desc_en:"The solar system's premier basin, formed last in lunar history, perfectly preserving its 3 mountain rings.", obs:"[추천 관측 월령: 서쪽 칭동 최대 시]\n서쪽 가장자리 너머로 거대한 평행 산맥 고리들의 외곽 곡선을 아주 살짝 엿볼 수 있습니다.", obs_en:"[Recommended Moon Age: West Libration]\nCatch a fleeting glimpse of the outer curves of its massive parallel mountain rings past the western limb."},
+            {id:81, name:"헤시오두스 A (Hesiodus A)", sig:"이중 동심원", sig_en:"Concentric Crater", lat:-30.1, lng:-17.0, diam:15, desc:"크레이터 바닥 한가운데 완벽한 원형 테두리가 하나 더 존재하는 매우 특이한 이중 동심원 크레이터.", desc_en:"A highly unusual crater featuring a perfect second circular rim sitting dead center on its floor.", obs:"[추천 관측 월령: 8~9일경, 22~23일경]\n대기 안정도가 뛰어날 때 고배율 렌즈를 사용하여 중앙의 정밀한 이중 링(양궁 과녁 모양)을 조준해보세요.", obs_en:"[Recommended Moon Age: 8~9 days, 22~23 days]\nUse high power on a steady night to resolve the precise double ring resembling an archery target."},
+            {id:82, name:"린네 (Linné)", sig:"밝은 점", sig_en:"Bright Spot", lat:27.7, lng:11.8, diam:2.4, desc:"과거에 분화구가 구름으로 변했다는 시상 착오로 인해 달이 살아있다는 논란을 빚었던 작은 크레이터.", desc_en:"A tiny crater that sparked a 'living moon' controversy when seeing errors made it look like a cloud.", obs:"[추천 관측 월령: 8일경~보름, 22일경]\n어두운 맑음의 바다 위에서 홀로 유난히 하얗고 쨍하게 반짝이는 작은 점을 중간 배율로 쉽게 찾을 수 있습니다.", obs_en:"[Recommended Moon Age: 8 days~Full, 22 days]\nEasily spot this exceptionally bright, stark white dot isolated on the dark Mare Serenitatis."},
+            {id:83, name:"플라톤 소구덩이 (Plato Craterlets)", sig:"분해능 테스트", sig_en:"Resolution Test", lat:51.6, lng:-9.4, diam:101, desc:"검은 바닥 위에 놓인 지름 1~2.5km 내외의 소구덩이 4~5개. 장비 분해능 챌린지 타겟입니다.", desc_en:"4 to 5 tiny craterlets (1-2.5km) dotting a dark floor. A legendary equipment resolution challenge.", obs:"[추천 관측 월령: 8~9일경, 22~23일경]\n대구경 망원경으로 기류가 멈춘 최상의 날씨에서 바늘구멍 같은 구덩이들을 몇 개나 구별해낼지 테스트하세요.", obs_en:"[Recommended Moon Age: 8~9 days, 22~23 days]\nTest how many pinhole craters you can resolve with a large telescope under perfect seeing conditions."},
+            {id:84, name:"피타투스 (Pitatus)", sig:"동심원 균열", sig_en:"Concentric Rilles", lat:-29.8, lng:-13.5, diam:97, desc:"마그마 압력으로 바닥이 융기하며 가장자리를 따라 둥글게 원형 균열(릴)이 파인 지형입니다.", desc_en:"A crater whose floor was uplifted by magma, cracking a circular rille right along the inner edge.", obs:"[추천 관측 월령: 8~9일경, 22~23일경]\n용암 바닥과 바깥 테두리 산맥이 만나는 경계를 따라 깊게 갈라진 틈새선을 그림자 각도를 통해 관찰하세요.", obs_en:"[Recommended Moon Age: 8~9 days, 22~23 days]\nUse shadowing to observe the deep fracture line hugging the boundary between floor and wall."},
+            {id:85, name:"랑그레누스 광조 (Langrenus Rays)", sig:"노화된 광조", sig_en:"Aged Rays", lat:-8.9, lng:60.9, diam:132, desc:"방사형 광조가 우주 풍화(Space Weathering)에 노출되며 원래의 밝기를 잃고 흐릿하게 늙어가고 있습니다.", desc_en:"Radial rays that are slowly losing their brightness and fading due to prolonged space weathering.", obs:"[추천 관측 월령: 보름 전후]\n티코 크레이터가 발산하는 눈이 시리게 밝은 젊은 광조와 비교하여 상대적으로 희미하고 퍼진 노화를 느껴보세요.", obs_en:"[Recommended Moon Age: Around Full Moon]\nCompare these faint, diffuse older rays with the blindingly bright, youthful rays of Tycho."},
+            {id:86, name:"프린츠 릴 (Prinz Rilles)", sig:"복잡한 릴", sig_en:"Complex Rilles", lat:27.0, lng:-43.0, diam:46, desc:"파묻힌 프린츠 크레이터 주변에 거미줄처럼 불규칙하게 얽히고설킨 대규모 화산 수로 네트워크.", desc_en:"A massive, irregularly tangled web of volcanic channels around the partially buried Prinz crater.", obs:"[추천 관측 월령: 12~13일경, 26~27일경]\n거대한 슈뢰터 계곡 옆에서, 더 가늘고 불규칙하게 뻗어 나가는 섬세한 릴들의 발원지를 고배율로 추적하세요.", obs_en:"[Recommended Moon Age: 12~13 days, 26~27 days]\nNext to Schröter's Valley, trace the sources of these thinner, more erratic rilles at high power."},
+            {id:87, name:"훔볼트 (Humboldt)", sig:"균열된 중앙", sig_en:"Fractured Floor", lat:-27.0, lng:80.9, diam:207, desc:"거대 중앙 봉우리 구조와, 거북이 등껍질처럼 심하게 융기하고 방사형 갈라진 바닥을 가졌습니다.", desc_en:"Features a huge central peak and a floor severely uplifted and cracked radially like a turtle shell.", obs:"[추천 관측 월령: 동남 칭동 최대 시]\n지평선 너머로 나타나면 험준한 바닥 융기와 이를 가로지르는 뚜렷한 방사형 릴을 확인하세요.", obs_en:"[Recommended Moon Age: SE Libration]\nWhen it emerges over the horizon, inspect its rugged uplifted floor and distinct radial cracks."},
+            {id:88, name:"피어리 (Peary)", sig:"영구 음영", sig_en:"Permanent Shadow", lat:88.6, lng:33.0, diam:74, desc:"달 북극점 바로 옆에 위치해 햇빛이 얕게 스치며, 바닥에는 영구 음영 지역이 있는 극한의 지형입니다.", desc_en:"Located adjacent to the north pole. Sunlight barely grazes it, leaving its floor in permanent shadow.", obs:"[추천 관측 월령: 북쪽 칭동 시]\n북쪽 끝 극한을 조준하여 어둠 속에서 햇빛을 받아 반짝이는 가장자리 산봉우리 실루엣만 감상하세요.", obs_en:"[Recommended Moon Age: North Libration]\nAim for the extreme north to catch only the glittering silhouettes of its rim peaks in the darkness."},
+            {id:89, name:"발렌타인 돔 (Valentine Dome)", sig:"하트 화산", sig_en:"Heart Volcano", lat:30.5, lng:10.1, diam:30, desc:"맑음의 바다 위에 높이 120m로 아주 완만하게 퍼져 융기한 쉴드 화산 돔. 하트 모양을 닮았습니다.", desc_en:"A very gentle 120m high shield volcano dome spread over Mare Serenitatis, shaped like a heart.", obs:"[추천 관측 월령: 7일경, 21일경]\n경사가 완만해 태양 고도가 낮은 명암경계선 근처일 때 단 몇 시간 동안만 하트 모양 그림자가 드러납니다.", obs_en:"[Recommended Moon Age: 7 days, 21 days]\nIts gentle slope means the heart-shaped shadow only reveals itself for a few hours near the terminator."},
+            {id:90, name:"아폴로 11호 (Armstrong, Aldrin, & Collins)", sig:"소형 크레이터", sig_en:"Small Craters", lat:1.3, lng:23.7, diam:3, desc:"고요의 기지 근처에 위치한 세 명의 아폴로 11호 우주비행사 이름을 딴 작은 분화구.", desc_en:"Three tiny craters near Tranquility Base, named after the Apollo 11 astronauts.", obs:"[추천 관측 월령: 6~7일경, 20~21일경]\n사빈 크레이터를 이정표로 동쪽 평원으로 이동해 150배 이상 고배율로 작은 점 세 개를 탐색해보세요.", obs_en:"[Recommended Moon Age: 6~7 days, 20~21 days]\nUse Sabine as a guidepost, move east, and hunt for the three tiny dots at 150x+ magnification."},
+            {id:91, name:"데 가스파리스 릴 (De Gasparis Rilles)", sig:"교차 릴", sig_en:"Intersecting Rilles", lat:-25.9, lng:-50.7, diam:30, desc:"서로 다른 방향의 선형 릴들이 X자, 십자 모양으로 무자비하게 교차하며 관통하는 단층대.", desc_en:"A fault zone where linear rilles ruthlessly intersect in X and cross patterns from different directions.", obs:"[추천 관측 월령: 12~13일경, 26~27일경]\n야수가 발톱으로 할퀴고 지나간 것처럼 크레이터 바닥과 테두리를 조각내는 선들을 고배율로 분해하세요.", obs_en:"[Recommended Moon Age: 12~13 days, 26~27 days]\nResolve the lines slashing the crater floor and walls as if clawed by a wild beast."},
+            {id:92, name:"길덴 계곡 (Gyldén Valley)", sig:"거대 파편 흔적", sig_en:"Debris Valley", lat:-5.1, lng:0.7, diam:47, desc:"비의 바다 거대 충돌로 튀어오른 암석들이 남동쪽으로 날아가다 지면을 긁어 만든 넓은 골짜기.", desc_en:"A wide valley scoured out by massive rocks flying southeast from the Imbrium impact event.", obs:"[추천 관측 월령: 7~8일경, 21~22일경]\n프톨레마이오스 위쪽에서 지형들이 북서에서 남동 방향으로 일제히 깎이고 뭉개진 상흔을 관찰하세요.", obs_en:"[Recommended Moon Age: 7~8 days, 21~22 days]\nObserve the scars above Ptolemaeus where the terrain was universally gouged from NW to SE."},
+            {id:93, name:"디오니시우스 광조 (Dionysius Rays)", sig:"검은 광조", sig_en:"Dark Rays", lat:2.8, lng:17.3, diam:18, desc:"충돌 시 일반적 흰색이 아닌 하부의 어두운 현무암 물질층을 파내어 검은 파편을 뿜어낸 이례적 광조.", desc_en:"An anomalous ray system that ejected dark basaltic material excavated from below instead of white rock.", obs:"[추천 관측 월령: 보름 전후]\n하얀 고지대를 배경으로 크레이터 양옆으로 먹물이 뻗어 나간 듯한 토끼 귀 모양의 어두운 띠를 대조해보세요.", obs_en:"[Recommended Moon Age: Around Full Moon]\nContrast the dark, rabbit-ear-like streaks extending across the bright highland background."},
+            {id:94, name:"드리가스키 (Drygalski)", sig:"남극 가장자리", sig_en:"South Pole Rim", lat:-79.3, lng:-84.9, diam:162, desc:"남극-에이킨 분지 외곽의 높은 산맥을 구성하는 거대한 장엄함을 지닌 고대 다중 고리 크레이터.", desc_en:"An ancient, majestic multi-ring crater forming the high mountain rim of the South Pole-Aitken basin.", obs:"[추천 관측 월령: 남/서 칭동 최대 시]\n가장자리 끝에서 거대한 산봉우리들이 지평선 위로 우뚝 솟아 요철을 이루는 실루엣을 관찰할 수 있습니다.", obs_en:"[Recommended Moon Age: SW Libration]\nCatch the jagged silhouette of its massive peaks looming over the extreme lunar limb."},
+            {id:95, name:"폭풍의 대양 (Oceanus Procellarum)", sig:"최대 바다", sig_en:"Largest Mare", lat:23.0, lng:-15.0, diam:3200, desc:"단일 분지가 아닌 여러 용암 분출이 합쳐져 달 앞면의 서쪽 3분의 1을 덮고 있는 가장 광활한 화산암 평원.", desc_en:"The most vast volcanic plain, covering a third of the near side, formed by merged lava floods.", obs:"[추천 관측 월령: 전 월령]\n맨눈이나 소형 쌍안경만으로 달 앞면 왼쪽을 덮어버린 거대한 바다의 압도적 크기를 한눈에 체감하세요.", obs_en:"[Recommended Moon Age: All phases]\nFeel the overwhelming size of this ocean covering the western half of the moon with just your naked eye.", img:"https://upload.wikimedia.org/wikipedia/commons/e/ee/Oceanus_Procellarum_%28LRO%29.png"},
+            {id:96, name:"라이프니츠 산맥 (Leibnitz Mountains)", sig:"최고도 산맥", sig_en:"Highest Mountains", lat:-85.0, lng:30.0, diam:300, desc:"달 뒷면 남극-에이킨 분지의 외곽 테두 산맥으로 수 km 높이에 달하는 달 최고 고도 지역입니다.", desc_en:"The outer rim of the far-side SPA basin, reaching several kilometers high, marking the moon's highest elevations.", obs:"[추천 관측 월령: 남쪽 칭동 시]\n남극 부근 지평선을 톱니바퀴나 톱날처럼 삐죽삐죽하게 돌출시키는 산맥의 웅장한 실루엣을 보세요.", obs_en:"[Recommended Moon Age: South Libration]\nSee the magnificent saw-tooth silhouette protruding from the southern horizon.", img:"https://upload.wikimedia.org/wikipedia/commons/0/05/South_Pole-Aitken_basin.jpg"},
+            {id:97, name:"인기라미 계곡 (Inghirami Valley)", sig:"쓸린 계곡", sig_en:"Swept Valley", lat:-44.0, lng:-73.0, diam:140, desc:"동방의 바다 형성 시 뿜어진 수억 톤의 용융 파편들이 거대한 빗자루처럼 지면을 휩쓸고 파낸 방사형 계곡.", desc_en:"A radial valley gouged out by hundreds of millions of tons of molten ejecta sweeping like a broom from Orientale.", obs:"[추천 관측 월령: 13~14일경, 27~28일경]\n크레이터 형태를 무시하고 남서쪽을 향해 표면을 굵직하게 파놓은 강력하고 일관된 선형 계곡을 관찰하세요.", obs_en:"[Recommended Moon Age: 13~14 days, 27~28 days]\nObserve the bold, consistent linear valley carved south-westward, ignoring underlying craters."},
+            {id:98, name:"비의 바다 용암층 (Imbrium Lava Flows)", sig:"용암 경계면", sig_en:"Lava Flow Fronts", lat:32.8, lng:-22.0, diam:200, desc:"시기와 성분이 다른 여러 번의 대규모 용암 쓰나미가 겹겹이 굳으면서 형성된 10~30m 높이의 단층 띠.", desc_en:"Layered 10-30m high scarps formed by multiple massive lava tsunamis of different ages solidifying.", obs:"[추천 관측 월령: 9일경, 23일경]\n사선광일 때 바다 중앙 평원에서 물결 모양으로 겹쳐 쌓인 얕은 용암 단차를 고배율로 기적처럼 잡아내보세요.", obs_en:"[Recommended Moon Age: 9 days, 23 days]\nMiraculously catch the shallow, wavy, stacked lava steps in the central plains under low light."},
+            {id:99, name:"이나 (Ina)", sig:"가스 배출구", sig_en:"Gas Vent", lat:18.6, lng:5.3, diam:3, desc:"불과 수천만 년 전까지 화산 가스가 배출된 흔적으로 추정되는 미스터리한 D자형 최신 지질 구조.", desc_en:"A mysterious D-shaped, very young geological structure thought to have vented gas just tens of millions of years ago.", obs:"[추천 관측 월령: 6~7일경, 20~21일경]\n너무 작아 식별이 거의 불가능하나, 대기가 맑은 날 독특한 거품 모양 지형이 있는 위치를 조준하는 챌린지입니다.", obs_en:"[Recommended Moon Age: 6~7 days, 20~21 days]\nAlmost impossible to resolve. Challenge yourself to pinpoint the location of this bizarre bubble terrain."},
+            {id:100, name:"경계의 바다 소용돌이 (Mare Marginis Swirls)", sig:"자기장 무늬", sig_en:"Magnetic Swirls", lat:18.5, lng:88.0, diam:100, desc:"국지적 자기장 우산 덕분에 태양풍 우주 풍화를 피하여 원래의 밝은 흙색을 기묘하게 유지한 소용돌이.", desc_en:"A bright swirl strangely preserved from solar wind weathering due to a localized magnetic 'umbrella'.", obs:"[추천 관측 월령: 동쪽 칭동 최대 시]\n지평선 부근 어두운 평원 위로 뜬구름처럼 퍼진 하얀 얼룩 반점들을 찾는 최고 난이도 관측 목표입니다.", obs_en:"[Recommended Moon Age: East Libration]\nThe ultimate challenge: spot the cloudy white patches drifting over the dark plain near the extreme horizon."}
         ];
 
-        let observedData = JSON.parse(localStorage.getItem('lunarObserved_v16')) || {};
+        let observedData = JSON.parse(localStorage.getItem('lunarObserved_v18')) || {};
         let currentItem = null;
         let isFeatureSelected = false; 
-        let todayAgeFilter = ""; // 오늘 월령 필터값 저장
+        let todayAgeFilter = ""; 
 
         function saveObservation() {
-            localStorage.setItem('lunarObserved_v16', JSON.stringify(observedData));
+            localStorage.setItem('lunarObserved_v18', JSON.stringify(observedData));
             updateProgress();
+        }
+
+        // 언어 변경 시 화면 내 텍스트 및 도움말 모달 콘텐츠 전체 변경 함수
+        function updateStaticUI() {
+            document.getElementById('searchInput').placeholder = uiText[currentLang].search;
+            const filter = document.getElementById('moonAgeFilter');
+            filter.options[0].text = uiText[currentLang].allPhases;
+            filter.options[1].text = uiText[currentLang].waxingCrescent;
+            filter.options[2].text = uiText[currentLang].firstQuarter;
+            filter.options[3].text = uiText[currentLang].gibbous;
+            filter.options[4].text = uiText[currentLang].fullMoon;
+            filter.options[5].text = uiText[currentLang].waningGibbous;
+            filter.options[6].text = uiText[currentLang].lastQuarter;
+            filter.options[7].text = uiText[currentLang].waningCrescent;
+            filter.options[8].text = uiText[currentLang].special;
+            
+            document.getElementById('backBtnText').innerText = uiText[currentLang].back;
+            document.getElementById('obsBtnText').innerText = uiText[currentLang].observe;
+            document.getElementById('infoMoonAgeLabel').innerText = uiText[currentLang].moonAge;
+            document.getElementById('infoMagLabel').innerText = uiText[currentLang].recMag;
+            document.getElementById('guideTitleText').innerText = uiText[currentLang].guideTitle;
+            document.getElementById('infoCoordsLabel').innerText = uiText[currentLang].coords;
+            document.getElementById('infoDiamLabel').innerText = uiText[currentLang].diam;
+            
+            document.querySelectorAll('.diff-label').forEach(el => el.innerText = uiText[currentLang].difficulty);
+            document.getElementById('markerToggleTextMobile').innerText = uiText[currentLang].markerMobile;
+
+            // 도움말(가이드) 모달 내용 언어 업데이트
+            document.getElementById('helpModalTitle').innerHTML = `
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="text-blue-600"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span>${uiText[currentLang].helpModalTitle}</span>
+            `;
+            document.getElementById('helpModalContent').innerHTML = uiText[currentLang].helpModalHtml;
+
+            updateProgress();
+        }
+
+        function changeLanguage(lang) {
+            currentLang = lang;
+            updateStaticUI();
+            initMoonAge(); 
+            renderList(); 
+            if (currentItem) {
+                focusItem(currentItem); 
+            } else {
+                updateCenterCoords(); 
+            }
+        }
+
+        // 도움말 모달 열기/닫기 함수
+        function openHelpModal() {
+            const modal = document.getElementById('helpModal');
+            const inner = document.getElementById('helpModalInner');
+            modal.classList.remove('hidden');
+            // 애니메이션 적용을 위한 약간의 딜레이
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                inner.classList.remove('scale-95');
+                inner.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeHelpModal() {
+            const modal = document.getElementById('helpModal');
+            const inner = document.getElementById('helpModalInner');
+            modal.classList.add('opacity-0');
+            inner.classList.remove('scale-100');
+            inner.classList.add('scale-95');
+            // 애니메이션이 끝난 후 hidden 처리
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
         }
 
         function updateProgress() {
             const count = Object.values(observedData).filter(v => v === true).length;
-            document.getElementById('progressText').innerText = `${count} / 100 달성`;
+            document.getElementById('progressText').innerText = `${count} / 100 ${uiText[currentLang].progress}`;
             document.getElementById('progressBar').style.width = `${count}%`;
         }
 
@@ -530,15 +731,8 @@
             const m = markers[id];
             if (m) {
                 const iconHtml = `<div class="${observedData[id] ? 'observed' : ''}">L${id}</div>`;
-                m.setIcon(L.divIcon({
-                    className: 'custom-lunar-marker',
-                    html: iconHtml,
-                    iconSize: [0, 0]
-                }));
-                
-                if (currentItem && currentItem.id === id) {
-                    m.setOpacity(0);
-                }
+                m.setIcon(L.divIcon({ className: 'custom-lunar-marker', html: iconHtml, iconSize: [0, 0] }));
+                if (currentItem && currentItem.id === id) m.setOpacity(0);
             }
 
             if (currentItem && currentItem.id === id) syncInfoPanelCheck();
@@ -560,78 +754,70 @@
         }
 
         const L_SCALE = 40075017 / 10917000;
-        
         const map = L.map('map', { center: [0, 0], zoom: 3, minZoom: 2, maxZoom: 8, attributionControl: false });
         L.tileLayer('https://cartocdn-gusc.global.ssl.fastly.net/opmbuilder/api/v1/map/named/opm-moon-basemap-v0-1/all/{z}/{x}/{y}.png', { maxNativeZoom: 7, maxZoom: 8 }).addTo(map);
-        
         const markerGroup = L.layerGroup().addTo(map);
 
-        const miniMap = L.map('miniMap', { 
-            zoomControl: false, dragging: false, touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false, 
-            boxZoom: false, keyboard: false, attributionControl: false 
-        });
+        const miniMap = L.map('miniMap', { zoomControl: false, dragging: false, touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, attributionControl: false });
         L.tileLayer('https://cartocdn-gusc.global.ssl.fastly.net/opmbuilder/api/v1/map/named/opm-moon-basemap-v0-1/all/{z}/{x}/{y}.png', { maxNativeZoom: 7, maxZoom: 12 }).addTo(miniMap);
         
         const markers = {};
         let activeHighlight = null;
         let shadowLayer = null; 
 
-        // 지형 크기에 따른 최적 관측 배율 산출 함수
         function getOptimalMagnification(diam, id) {
-            if (id === 1) return "맨눈 (1x)";
-            if (id === 2) return "쌍안경 (7x ~ 10x)";
-            if (id === 3 || id === 95) return "맨눈 ~ 저배율 (10x ~ 30x)";
-            if (diam >= 400) return "저배율 (30x ~ 50x)";
-            if (diam >= 150) return "중저배율 (50x ~ 80x)";
-            if (diam >= 70) return "중배율 (80x ~ 120x)";
-            if (diam >= 30) return "고배율 (120x ~ 150x)";
-            if (diam >= 10) return "초고배율 (150x ~ 200x)";
-            return "극한배율 (200x 이상)"; // 10km 미만의 미세 지형
+            if (id === 1) return uiText[currentLang].mag1;
+            if (id === 2) return uiText[currentLang].mag2;
+            if (id === 3 || id === 95) return uiText[currentLang].mag3;
+            if (diam >= 400) return uiText[currentLang].mag4;
+            if (diam >= 150) return uiText[currentLang].mag5;
+            if (diam >= 70) return uiText[currentLang].mag6;
+            if (diam >= 30) return uiText[currentLang].mag7;
+            if (diam >= 10) return uiText[currentLang].mag8;
+            return uiText[currentLang].mag9; 
         }
 
-        // 월면좌표계 포맷 변환 함수
         function formatLunarCoords(lat, lng, isShort = false) {
-            const latStr = lat >= 0 ? `북위 ${Math.abs(lat).toFixed(2)}°` : `남위 ${Math.abs(lat).toFixed(2)}°`;
-            const lngStr = lng >= 0 ? `동경 ${Math.abs(lng).toFixed(2)}°` : `서경 ${Math.abs(lng).toFixed(2)}°`;
-            
-            return `${latStr}, ${lngStr}`; // 상세 정보창과 오버레이 모두 동일하고 간결하게 적용
+            const latStr = lat >= 0 ? `${uiText[currentLang].northLat} ${Math.abs(lat).toFixed(2)}°` : `${uiText[currentLang].southLat} ${Math.abs(lat).toFixed(2)}°`;
+            const lngStr = lng >= 0 ? `${uiText[currentLang].eastLng} ${Math.abs(lng).toFixed(2)}°` : `${uiText[currentLang].westLng} ${Math.abs(lng).toFixed(2)}°`;
+            return `${latStr}, ${lngStr}`; 
         }
 
-        // 관측 난이도 사각형 UI 생성 함수 (1~100번을 5단계로 분류)
         function getDifficultyHtml(id, isLarge = false) {
-            let level = Math.ceil(id / 20); // 1~20: 1단계, 21~40: 2단계 ... 81~100: 5단계
-            if(level > 5) level = 5;
-            if(level < 1) level = 1;
-            
+            let level = Math.ceil(id / 20); 
+            if(level > 5) level = 5; if(level < 1) level = 1;
             const w = isLarge ? 'w-2' : 'w-1.5';
             const h = isLarge ? 'h-3.5' : 'h-2.5';
             const baseClass = `${w} ${h} rounded-[2px]`;
             
-            let html = `<div class="flex items-center gap-[3px]" title="관측 난이도: ${level}/5">`;
+            let html = `<div class="flex items-center gap-[3px]" title="${uiText[currentLang].difficulty}: ${level}/5">`;
             for(let i=1; i<=5; i++) {
-                if(i <= level) {
-                    html += `<div class="${baseClass} bg-amber-400 shadow-sm"></div>`;
-                } else {
-                    html += `<div class="${baseClass} bg-slate-200"></div>`;
-                }
+                if(i <= level) html += `<div class="${baseClass} bg-amber-400 shadow-sm"></div>`;
+                else html += `<div class="${baseClass} bg-slate-200"></div>`;
             }
             html += '</div>';
             return html;
         }
 
-        // 오늘 월령 계산 (연도 포함 날짜 포맷 적용 및 월출/월몰 계산)
         function initMoonAge() {
             const today = new Date();
             const year = today.getFullYear();
             const month = today.getMonth() + 1;
             const day = today.getDate();
-            const daysArr = ['일', '월', '화', '수', '목', '금', '토'];
-            const dayName = daysArr[today.getDay()];
+            const daysArrKo = ['일', '월', '화', '수', '목', '금', '토'];
+            const daysArrEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const dayName = currentLang === 'ko' ? daysArrKo[today.getDay()] : daysArrEn[today.getDay()];
             
-            const dateStrDesktop = `${year}. ${month}. ${day}. (${dayName})`;
-            const dateStrMobile = `${String(year).slice(-2)}. ${month}. ${day}.`; // 모바일은 공간 확보를 위해 요일 생략
+            let dateStrDesktop, dateStrMobile;
+            if (currentLang === 'ko') {
+                dateStrDesktop = `${year}. ${month}. ${day}. (${dayName})`;
+                dateStrMobile = `${String(year).slice(-2)}. ${month}. ${day}.`; 
+            } else {
+                const monthsEn = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                dateStrDesktop = `${monthsEn[month-1]} ${day}, ${year} (${dayName})`;
+                dateStrMobile = `${monthsEn[month-1]} ${day}, '${String(year).slice(-2)}`;
+            }
 
-            // --- 달 뜨고 지는 시간 계산 (한국 서울 좌표 기준) ---
             const lat = 37.5665; 
             const lng = 126.9780;
             let riseStr = '--:--';
@@ -640,37 +826,30 @@
             if (typeof SunCalc !== 'undefined') {
                 const times = SunCalc.getMoonTimes(today, lat, lng);
                 const formatTime = (d) => {
-                    if (!d || isNaN(d)) return '--:--'; // 달이 안 뜨거나 안 지는 날 예외 처리
+                    if (!d || isNaN(d)) return '--:--'; 
                     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
                 };
                 riseStr = formatTime(times.rise);
                 setStr = formatTime(times.set);
             }
 
-            document.getElementById('moonRiseSet').innerHTML = `<span class="text-amber-400 mr-[1px]">▲</span>${riseStr} <span class="text-blue-400 ml-1 mr-[1px]">▼</span>${setStr}`;
-            // -----------------------------------------------------
+            const riseIcon = '<span class="text-amber-400 mr-[1px]">▲</span>';
+            const setIcon = '<span class="text-blue-400 ml-1 mr-[1px]">▼</span>';
+            document.getElementById('moonRiseSet').innerHTML = `${riseIcon}${riseStr} ${setIcon}${setStr}`;
 
             const synodicMonth = 29.53058867; 
             const newMoonDate = new Date('2000-01-06T18:14:00Z').getTime(); 
-            
             const targetTime = new Date(year, today.getMonth(), today.getDate(), 12, 0, 0).getTime();
             const diff = targetTime - newMoonDate;
             let age = (diff / (1000 * 60 * 60 * 24)) % synodicMonth;
             if (age < 0) age += synodicMonth;
             
-            let icon = '';
-            let rDay = Math.round(age);
-            
+            let icon = ''; let rDay = Math.round(age);
             if (age < 1.8 || age > 27.7) icon = '🌑'; 
-            else if (age < 5.5) icon = '🌒'; 
-            else if (age < 9.2) icon = '🌓'; 
-            else if (age < 12.9) icon = '🌔'; 
-            else if (age < 16.6) icon = '🌕'; 
-            else if (age < 20.3) icon = '🌖'; 
-            else if (age < 24.0) icon = '🌗'; 
-            else icon = '🌘'; 
+            else if (age < 5.5) icon = '🌒'; else if (age < 9.2) icon = '🌓'; 
+            else if (age < 12.9) icon = '🌔'; else if (age < 16.6) icon = '🌕'; 
+            else if (age < 20.3) icon = '🌖'; else if (age < 24.0) icon = '🌗'; else icon = '🌘'; 
             
-            // 오늘 날짜에 따른 필터 타겟 계산
             if (rDay >= 2 && rDay <= 5) todayAgeFilter = "초승달";
             else if (rDay >= 6 && rDay <= 9) todayAgeFilter = "상현달";
             else if (rDay >= 10 && rDay <= 13) todayAgeFilter = "보름접근";
@@ -683,13 +862,12 @@
             document.getElementById('dateStrMobile').innerText = dateStrMobile;
             document.getElementById('dateStrDesktop').innerText = dateStrDesktop;
             document.getElementById('moonIconDisplay').innerText = icon;
-            document.getElementById('moonAgeDisplay').innerText = `${age.toFixed(1)}일`;
+            document.getElementById('moonAgeDisplay').innerText = currentLang === 'ko' ? `${age.toFixed(1)}일` : `${age.toFixed(1)}d`;
         }
 
         function toggleTodayFilter(e) {
             const dropdown = document.getElementById('moonAgeFilter');
             if (e.target.checked) {
-                // "삭" 일 경우를 대비해 숨겨진 옵션 동적 추가
                 let optionExists = Array.from(dropdown.options).some(opt => opt.value === todayAgeFilter);
                 if (!optionExists) {
                     const opt = document.createElement('option');
@@ -707,32 +885,32 @@
             filterList();
         }
 
-        function initApp() {
-            initMoonAge(); 
-            
+        function renderList() {
             const listContainer = document.getElementById('lunarList');
             listContainer.innerHTML = ''; 
 
-            lunar100Data.forEach(item => {
-                const iconHtml = `<div class="${observedData[item.id] ? 'observed' : ''}">L${item.id}</div>`;
-                const customIcon = L.divIcon({
-                    className: 'custom-lunar-marker',
-                    html: iconHtml,
-                    iconSize: [0, 0] 
-                });
+            markerGroup.clearLayers();
+            for (let key in markers) { delete markers[key]; }
 
+            lunar100Data.forEach(item => {
+                const nameEnMatch = item.name.match(/\((.*?)\)/);
+                const nameEn = nameEnMatch ? nameEnMatch[1].trim() : item.name.split('(')[0].trim();
+                const displayName = currentLang === 'ko' ? item.name : nameEn; 
+                const displaySig = currentLang === 'ko' ? item.sig : item.sig_en;
+
+                const iconHtml = `<div class="${observedData[item.id] ? 'observed' : ''}">L${item.id}</div>`;
+                const customIcon = L.divIcon({ className: 'custom-lunar-marker', html: iconHtml, iconSize: [0, 0] });
                 const m = L.marker([item.lat, item.lng], { icon: customIcon }).addTo(markerGroup);
                 
-                m.bindTooltip(`<b>${item.name.split('(')[0].trim()}</b>`, { 
-                    direction: 'top', offset: [0, -15], className: 'hover-tooltip'
-                });
-                
+                m.bindTooltip(`<b>${displayName}</b>`, { direction: 'top', offset: [0, -15], className: 'hover-tooltip' });
                 m.on('click', () => focusItem(item));
                 markers[item.id] = m;
+                
+                if (currentItem && currentItem.id === item.id) m.setOpacity(0);
 
                 const isObserved = observedData[item.id];
                 const card = document.createElement('div');
-                card.className = `lunar-card ${isObserved ? 'observed' : ''}`; // list-item -> lunar-card로 변경
+                card.className = `lunar-card ${isObserved ? 'observed' : ''}`;
                 card.id = `card-${item.id}`;
                 card.onclick = () => focusItem(item);
                 
@@ -742,10 +920,10 @@
                             ${isObserved ? '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>' : ''}
                         </div>
                         <span class="badge shrink-0">L${item.id}</span>
-                        <h3 class="text-[13.5px] font-bold text-slate-800 truncate">${item.name}</h3>
+                        <h3 class="text-[13.5px] font-bold text-slate-800 truncate">${displayName}</h3>
                     </div>
                     <div class="pl-[38px] pr-2 w-full min-w-0 flex justify-between items-center">
-                        <p class="text-[11px] text-slate-500 truncate">${item.sig}</p>
+                        <p class="text-[11px] text-slate-500 truncate">${displaySig}</p>
                         <div class="shrink-0 pl-2">
                             ${getDifficultyHtml(item.id, false)}
                         </div>
@@ -753,16 +931,14 @@
                 `;
                 listContainer.appendChild(card);
             });
+            
+            filterList();
             updateProgress();
-            updateCenterCoords(); 
         }
 
         function toggleMarkerLayer(e) {
-            if (e.target.checked) {
-                map.addLayer(markerGroup);
-            } else {
-                map.removeLayer(markerGroup);
-            }
+            if (e.target.checked) map.addLayer(markerGroup);
+            else map.removeLayer(markerGroup);
         }
 
         function getOptimalZoom(diam) {
@@ -771,9 +947,7 @@
             const kmPerPixelAtZoom0 = 10917 / 256; 
             const requiredZoom = Math.log2(kmPerPixelAtZoom0 * targetPixels / diam);
             let z = Math.round(requiredZoom);
-            
-            if (z < 3) z = 3;
-            if (z > 5) z = 5; 
+            if (z < 3) z = 3; if (z > 5) z = 5; 
             return z;
         }
 
@@ -793,9 +967,7 @@
                 activeHighlight = null;
             }
             
-            Object.values(markers).forEach(m => {
-                m.setOpacity(0.6);
-            });
+            Object.values(markers).forEach(m => m.setOpacity(0.6));
             
             if (markers[item.id]) {
                 markers[item.id].setOpacity(0);
@@ -807,29 +979,30 @@
             let z = getMainMapZoom(item.diam, item.id);
             map.flyTo([item.lat, item.lng], z, { duration: 1.2 });
 
+            const nameEnMatch = item.name.match(/\((.*?)\)/);
+            const nameEn = nameEnMatch ? nameEnMatch[1].trim() : item.name.split('(')[0].trim();
+            const displayName = currentLang === 'ko' ? item.name : nameEn; 
+
             if (item.diam > 0 || item.id > 3) {
                 const radius = (item.diam / 2) * 1000 * L_SCALE * 1.35;
                 activeHighlight = L.circle([item.lat, item.lng], {
                     color: '#3b82f6', weight: 3, fillOpacity: 0.15, radius: Math.max(radius, 30000)
                 }).addTo(map);
 
-                activeHighlight.bindTooltip(`L${item.id}. ${item.name.split('(')[0].trim()}`, {
-                    permanent: true,
-                    direction: 'bottom',
-                    className: 'bottom-name-label',
-                    offset: [0, 10]
+                activeHighlight.bindTooltip(`L${item.id}. ${displayName}`, {
+                    permanent: true, direction: 'bottom', className: 'bottom-name-label', offset: [0, 10]
                 }).openTooltip();
             }
 
             document.getElementById('infoBadge').innerText = `L${item.id}`;
-            document.getElementById('infoTitle').innerText = item.name;
-            document.getElementById('infoSig').innerText = item.sig;
+            document.getElementById('infoTitle').innerText = displayName;
+            document.getElementById('infoSig').innerText = currentLang === 'ko' ? item.sig : item.sig_en;
             document.getElementById('infoDifficulty').innerHTML = getDifficultyHtml(item.id, true);
-            document.getElementById('infoDesc').innerText = item.desc;
-            document.getElementById('infoMagText').innerText = getOptimalMagnification(item.diam, item.id); // 최적 배율 적용
+            document.getElementById('infoDesc').innerText = currentLang === 'ko' ? item.desc : item.desc_en;
+            document.getElementById('infoMagText').innerText = getOptimalMagnification(item.diam, item.id);
             
-            const obsText = item.obs;
-            const moonAgeMatch = obsText.match(/\[추천 관측 월령:\s*(.*?)\]/);
+            const obsText = currentLang === 'ko' ? item.obs : item.obs_en;
+            const moonAgeMatch = obsText.match(/\[(?:추천 관측 월령|Recommended Moon Age):\s*(.*?)\]/);
             
             if (moonAgeMatch) {
                 document.getElementById('infoMoonAgeText').innerText = moonAgeMatch[1];
@@ -840,12 +1013,12 @@
                 document.getElementById('infoObs').innerHTML = obsText.replace(/\n/g, '<br>');
             }
             
-            const coordsTextFull = item.id <= 3 ? "광범위/전체" : formatLunarCoords(item.lat, item.lng, false);
-            const coordsTextShort = item.id <= 3 ? "광범위/전체" : formatLunarCoords(item.lat, item.lng, true);
+            const coordsTextFull = item.id <= 3 ? uiText[currentLang].entire : formatLunarCoords(item.lat, item.lng, false);
+            const coordsTextShort = item.id <= 3 ? uiText[currentLang].entire : formatLunarCoords(item.lat, item.lng, true);
 
             document.getElementById('infoCoords').innerText = coordsTextFull;
-            document.getElementById('coordDisplay').innerText = `선택: ${coordsTextShort} | 확대: ${z}`;
-            document.getElementById('infoDiam').innerText = item.diam || "전체";
+            document.getElementById('coordDisplay').innerText = `${uiText[currentLang].select} ${coordsTextShort} | ${uiText[currentLang].zoom} ${z}`;
+            document.getElementById('infoDiam').innerText = item.diam || uiText[currentLang].entire;
             
             const infoImg = document.getElementById('infoImg');
             const miniMapDiv = document.getElementById('miniMap');
@@ -857,13 +1030,9 @@
             } else {
                 infoImg.style.display = 'none';
                 miniMapDiv.style.display = 'block';
-                
                 let miniZ = getOptimalZoom(item.diam);
-                if(item.id <= 3) {
-                    miniMap.setView([0, 0], 2);
-                } else {
-                    miniMap.setView([item.lat, item.lng], miniZ);
-                }
+                if(item.id <= 3) miniMap.setView([0, 0], 2);
+                else miniMap.setView([item.lat, item.lng], miniZ);
             }
             
             syncInfoPanelCheck();
@@ -883,11 +1052,8 @@
                 miniMap.invalidateSize(); 
                 if(!item.img) {
                     let miniZ = getOptimalZoom(item.diam);
-                    if(item.id <= 3) {
-                        miniMap.setView([0, 0], 2, {animate: false});
-                    } else {
-                        miniMap.setView([item.lat, item.lng], miniZ, {animate: false});
-                    }
+                    if(item.id <= 3) miniMap.setView([0, 0], 2, {animate: false});
+                    else miniMap.setView([item.lat, item.lng], miniZ, {animate: false});
                 }
             }, 350); 
         }
@@ -902,37 +1068,38 @@
                 activeHighlight = null;
             }
             
-            Object.values(markers).forEach(m => {
-                m.setOpacity(1);
-            });
-            
+            Object.values(markers).forEach(m => m.setOpacity(1));
             map.flyTo([0, 0], 3, { duration: 1.2 });
             setTimeout(updateCenterCoords, 1200);
         }
 
-        // 목록 필터링 기능 (텍스트 검색 + 월령 효과 처리)
         function filterList() {
             const term = document.getElementById('searchInput').value.toLowerCase().replace(/\s/g, '');
             const ageFilter = document.getElementById('moonAgeFilter').value;
-            const cards = document.querySelectorAll('.lunar-card'); // list-item -> lunar-card로 변경
+            const cards = document.querySelectorAll('.lunar-card'); 
             
             cards.forEach(card => {
                 const idStr = card.id.replace('card-', '');
                 const item = lunar100Data.find(d => d.id == idStr);
                 if (!item) return;
 
-                const textMatch = card.textContent.toLowerCase().replace(/\s/g, '').includes(term);
+                const nameEnMatch = item.name.match(/\((.*?)\)/);
+                const nameEn = nameEnMatch ? nameEnMatch[1].trim() : item.name.split('(')[0].trim();
+                const displayName = currentLang === 'ko' ? item.name : nameEn;
+                const displaySig = currentLang === 'ko' ? item.sig : item.sig_en;
+
+                const textToSearch = (displayName + displaySig).toLowerCase().replace(/\s/g, '');
+                const textMatch = textToSearch.includes(term);
                 
                 let ageMatch = true;
                 if (ageFilter) {
                     ageMatch = false;
-                    const obsStr = item.obs;
+                    const obsStr = item.obs; 
                     
                     if (obsStr.includes("전 월령")) ageMatch = true;
                     if (ageFilter === "칭동" && (obsStr.includes("칭동") || item.id <= 3)) ageMatch = true;
                     if (ageFilter === "보름" && obsStr.includes("보름")) ageMatch = true;
                     
-                    // 정규식을 통해 날짜 범위 추출하여 매칭
                     const ranges = obsStr.match(/(\d+)~?(\d*)일경/g);
                     if (ranges) {
                         ranges.forEach(r => {
@@ -954,7 +1121,6 @@
                 const isVisible = textMatch && ageMatch;
                 card.style.display = isVisible ? 'flex' : 'none';
 
-                // 달 지도 마커 동기화
                 if (isVisible) {
                     if (!markerGroup.hasLayer(markers[item.id])) markerGroup.addLayer(markers[item.id]);
                 } else {
@@ -962,7 +1128,6 @@
                 }
             });
 
-            // --- 달 지도 그림자(명암경계선) 이중 효과 적용 ---
             if (shadowLayer) {
                 map.removeLayer(shadowLayer);
                 shadowLayer = null;
@@ -1002,13 +1167,18 @@
                 const center = map.getCenter();
                 const zoom = map.getZoom();
                 const coordsTextShort = formatLunarCoords(center.lat, center.lng, true);
-                document.getElementById('coordDisplay').innerText = `월면좌표: ${coordsTextShort} | 확대: ${zoom}`;
+                const prefix = currentLang === 'ko' ? "월면좌표: " : "Lunar Coords: ";
+                document.getElementById('coordDisplay').innerText = `${prefix}${coordsTextShort} | ${uiText[currentLang].zoom} ${zoom}`;
             }
         }
 
         map.on('dragstart', () => { isFeatureSelected = false; });
         map.on('move', updateCenterCoords);
         map.on('zoom', updateCenterCoords);
+
+        function initApp() {
+            changeLanguage('ko'); 
+        }
 
         window.onload = initApp;
     </script>
